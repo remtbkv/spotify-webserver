@@ -17,20 +17,21 @@ class SpotifyClient:
             "user-read-playback-position user-modify-playback-state"
         )
 
-        client_id = os.getenv("SPOTIPY_CLIENT_ID")
-        client_secret = os.getenv("SPOTIPY_CLIENT_SECRET")
-        redirect_uri = os.getenv("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:9090/callback")
-
-        # cache_path=None makes the library not store a local cache file; we store token in flask session
-        self.sp_oauth = SpotifyOAuth(
-            client_id=client_id,
-            client_secret=client_secret,
-            redirect_uri=redirect_uri,
-            scope=self.scope,
-            cache_path=None,
-        )
+        # Delay creating SpotifyOAuth until it's needed. In serverless
+        # environments creating it at import-time can register handlers or
+        # otherwise interact with vendor code that causes shutdown errors.
+        self.sp_oauth = None
+        self._oauth_config = {
+            'client_id': os.getenv("SPOTIPY_CLIENT_ID"),
+            'client_secret': os.getenv("SPOTIPY_CLIENT_SECRET"),
+            'redirect_uri': os.getenv("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:9090/callback"),
+            'scope': self.scope,
+            'cache_path': None,
+        }
 
     def _ensure_token(self):
+        # Ensure OAuth helper exists before token ops
+        self._ensure_oauth()
         token_info = session.get("token_info")
         if not token_info:
             return None
@@ -44,6 +45,7 @@ class SpotifyClient:
         return self.sp
 
     def get_authorize_url(self):
+        self._ensure_oauth()
         return self.sp_oauth.get_authorize_url()
 
     def handle_callback(self, request_args):
@@ -52,6 +54,7 @@ class SpotifyClient:
             return None
         # exchange code for token
         # Note: different spotipy versions return either a dict or an oauth object; handle both
+        self._ensure_oauth()
         token_info = self.sp_oauth.get_access_token(code)
         # ensure token_info is a dict
         if hasattr(token_info, "get"):
@@ -62,6 +65,18 @@ class SpotifyClient:
         self.sp = spotipy.Spotify(auth=session["token_info"]["access_token"]) 
         return self.sp
 
+
+    def _ensure_oauth(self):
+        """Create the SpotifyOAuth helper lazily."""
+        if self.sp_oauth is None:
+            cfg = self._oauth_config
+            self.sp_oauth = SpotifyOAuth(
+                client_id=cfg['client_id'],
+                client_secret=cfg['client_secret'],
+                redirect_uri=cfg['redirect_uri'],
+                scope=cfg['scope'],
+                cache_path=cfg['cache_path'],
+            )
 
     def get_current_user(self):
         if not self._ensure_token():
