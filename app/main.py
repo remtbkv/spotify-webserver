@@ -2,7 +2,7 @@ import os
 import logging
 import sys
 from flask import Flask, render_template, redirect, url_for, request, flash, session
-from spotify_client import SpotifyClient
+from app.spotify_client import SpotifyClient
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.secret_key = os.getenv('FLASK_SECRET', 'dev-secret-key')

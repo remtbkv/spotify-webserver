@@ -1,4 +1,4 @@
-from spotify_client import SpotifyClient
+from app.spotify_client import SpotifyClient
 
 def save_queue_to_playlist(user_id, playlist_name, queue_tracks):
     spotify_client = SpotifyClient()
