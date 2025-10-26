@@ -177,7 +177,20 @@ def login():
 def callback():
     sp = client.handle_callback(request.args)
     if not sp:
-        flash("Authorization failed.", "error")
+        # Surface any short, non-secret OAuth errors saved by the SpotifyClient
+        oauth_err = None
+        try:
+            oauth_err = session.pop('oauth_error', None)
+        except Exception:
+            oauth_err = None
+        if oauth_err:
+            # Log the server-side details (Vercel logs) and show a helpful
+            # message to the user (no secrets are included in oauth_err).
+            app.logger.warning('OAuth token exchange failed: %s', oauth_err)
+            flash(f"Authorization failed: {oauth_err}", "error")
+        else:
+            app.logger.warning('OAuth token exchange failed: unknown reason')
+            flash("Authorization failed.", "error")
         return redirect(url_for('index'))
     return redirect(url_for('playlists'))
 
