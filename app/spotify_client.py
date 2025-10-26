@@ -59,9 +59,15 @@ class SpotifyClient:
         try:
             token_info = self.sp_oauth.get_access_token(code)
         except SpotifyOauthError as e:
-            # Log and return None so caller can show a user-friendly message
+            # Log and store a short, non-secret error in the session so the
+            # web handler can show a helpful message to the user.
             logger = logging.getLogger(__name__)
             logger.warning("Spotify OAuth error during token exchange: %s", e)
+            try:
+                # keep only the short spotify error text (no secrets)
+                session['oauth_error'] = str(e)
+            except Exception:
+                pass
             return None
         except Exception as e:
             logger = logging.getLogger(__name__)

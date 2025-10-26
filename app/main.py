@@ -120,7 +120,18 @@ def index():
     if code:
         sp = client.handle_callback(request.args)
         if not sp:
-            flash("Authorization failed.", "error")
+            # If the OAuth helper set a short error message in the session,
+            # surface a clearer instruction to the user.
+            oauth_err = None
+            try:
+                oauth_err = session.pop('oauth_error', None)
+            except Exception:
+                oauth_err = None
+            if oauth_err and 'invalid_client' in oauth_err.lower():
+                flash("Authorization failed: invalid client credentials.\n"
+                      "Check SPOTIPY_CLIENT_ID and SPOTIPY_CLIENT_SECRET in your Vercel environment and rotate the secret if it may have been exposed.", "error")
+            else:
+                flash("Authorization failed.", "error")
             return render_template("index.html")
         return redirect(url_for('playlists'))
 
