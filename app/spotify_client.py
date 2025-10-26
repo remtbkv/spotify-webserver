@@ -27,8 +27,14 @@ class SpotifyClient:
         # 'https://example.vercel.app') — we want the full callback path.
         raw_redirect = os.getenv("SPOTIPY_REDIRECT_URI")
         if raw_redirect:
-            # remove trailing slash and ensure '/callback' appended
-            raw_redirect = raw_redirect.rstrip('/') + '/callback'
+            # Normalize but avoid duplicating '/callback' if the value
+            # already contains it. Examples we want to accept:
+            # - https://example.vercel.app
+            # - https://example.vercel.app/
+            # - https://example.vercel.app/callback
+            raw_redirect = raw_redirect.rstrip('/')
+            if not raw_redirect.endswith('/callback'):
+                raw_redirect = raw_redirect + '/callback'
         else:
             raw_redirect = "http://127.0.0.1:9090/callback"
 
