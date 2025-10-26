@@ -2,7 +2,8 @@ import os
 import time
 from flask import session
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
+import logging
+from spotipy.oauth2 import SpotifyOAuth, SpotifyOauthError
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -55,7 +56,17 @@ class SpotifyClient:
         # exchange code for token
         # Note: different spotipy versions return either a dict or an oauth object; handle both
         self._ensure_oauth()
-        token_info = self.sp_oauth.get_access_token(code)
+        try:
+            token_info = self.sp_oauth.get_access_token(code)
+        except SpotifyOauthError as e:
+            # Log and return None so caller can show a user-friendly message
+            logger = logging.getLogger(__name__)
+            logger.warning("Spotify OAuth error during token exchange: %s", e)
+            return None
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.exception("Unexpected error during Spotify token exchange: %s", e)
+            return None
         # ensure token_info is a dict
         if hasattr(token_info, "get"):
             session["token_info"] = token_info

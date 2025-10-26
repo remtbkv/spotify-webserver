@@ -1,7 +1,8 @@
 import os
 import logging
 import sys
-from flask import Flask, render_template, redirect, url_for, request, flash, session
+from flask import Flask, render_template, redirect, url_for, request, flash, session, send_from_directory
+from werkzeug.exceptions import HTTPException
 from app.spotify_client import SpotifyClient
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -74,6 +75,14 @@ client = SpotifyClient()
 # Global error handler to log full tracebacks to Vercel logs
 @app.errorhandler(Exception)
 def handle_unexpected_error(error):
+    # For HTTP exceptions (404, 400, etc.) return their proper status code
+    # without treating them as internal server errors. This prevents requests
+    # like `/favicon.ico` from showing up as a 500 in logs when the client
+    # simply requested a missing static file.
+    if isinstance(error, HTTPException):
+        app.logger.info(f'HTTP exception during request: {error}')
+        return error.description, error.code
+
     app.logger.exception('Unhandled exception during request')
     # Return a generic 500 to the client; the logs will contain details
     return 'Internal Server Error', 500
@@ -86,6 +95,18 @@ def log_request_info():
         app.logger.info(f'session keys: {list(session.keys())}')
     except Exception:
         pass
+
+
+@app.route('/favicon.ico')
+def favicon():
+    """Attempt to serve a favicon from the static folder; if missing, return
+    204 No Content so clients don't trigger a 404->500 in our logs.
+    """
+    try:
+        return send_from_directory(app.static_folder, 'favicon.ico')
+    except Exception:
+        # Don't raise — browsers will survive without a favicon.
+        return ('', 204)
 
 
 @app.route("/")
