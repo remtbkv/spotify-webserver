@@ -22,6 +22,9 @@ nav a{margin-left:12px; color:var(--muted); text-decoration:none;}
 .playlist input{ /* normalize checkbox size and alignment */
   width:18px; height:18px; margin:0; padding:0; flex:0 0 auto; vertical-align:middle;
 }
+/* Reduce vertical spacing for the merge playlist chooser so rows sit closer */
+.panel .panel-body.grid{ gap:8px; }
+.panel .panel-body.grid .playlist{ padding:6px; gap:8px; }
 textarea{width:100%; padding:8px; border-radius:6px; border:1px solid var(--border)}
 input[type="text"], select, input{padding:8px; border-radius:6px; border:1px solid var(--border)}
 .flashes{list-style:none; padding:0; margin:8px 0;}
