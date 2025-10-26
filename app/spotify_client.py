@@ -10,7 +10,6 @@ load_dotenv()
 class SpotifyClient:
     def __init__(self):
         self.sp = None
-        # scopes needed by the existing script (expanded to match PlaylistManager.py)
         self.scope = (
             "user-library-read playlist-read-private playlist-read-collaborative "
             "playlist-modify-private playlist-modify-public user-library-modify "
@@ -21,11 +20,6 @@ class SpotifyClient:
         client_id = os.getenv("SPOTIPY_CLIENT_ID")
         client_secret = os.getenv("SPOTIPY_CLIENT_SECRET")
         redirect_uri = os.getenv("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:9090/callback")
-
-        if not client_id or not client_secret:
-            # Keep constructing SpotifyOAuth but it will fail later if credentials missing.
-            # This mirrors original behavior where user provided credentials via .env
-            pass
 
         # cache_path=None makes the library not store a local cache file; we store token in flask session
         self.sp_oauth = SpotifyOAuth(
@@ -68,9 +62,6 @@ class SpotifyClient:
         self.sp = spotipy.Spotify(auth=session["token_info"]["access_token"]) 
         return self.sp
 
-    def logout(self):
-        session.pop("token_info", None)
-        self.sp = None
 
     def get_current_user(self):
         if not self._ensure_token():

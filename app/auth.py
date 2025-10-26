@@ -1,6 +1,5 @@
 from flask import Blueprint, redirect, request, session, url_for
 import os
-import requests
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
@@ -26,10 +25,6 @@ def callback():
     session['token_info'] = token_info
     return redirect(url_for('main.index'))
 
-@auth_bp.route('/logout')
-def logout():
-    session.pop('token_info', None)
-    return redirect(url_for('main.index'))
 
 def get_token():
     token_info = session.get('token_info', {})

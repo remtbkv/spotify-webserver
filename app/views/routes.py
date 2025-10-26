@@ -28,7 +28,3 @@ def user_playlists():
     playlists = get_user_playlists(spotify_client)
     return {"playlists": playlists}  # You can render a template here instead
 
-@routes.route('/logout')
-def logout():
-    session.pop('token', None)
-    return redirect(url_for('routes.index'))

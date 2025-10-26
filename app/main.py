@@ -1,10 +1,9 @@
 import os
-from flask import Flask, render_template, redirect, url_for, session, request, flash
-import difflib
+from flask import Flask, render_template, redirect, url_for, request, flash
 from spotify_client import SpotifyClient
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
-app.secret_key = os.getenv('FLASK_SECRET', 'dev-secret-key')
+app.secret_key = os.getenv('FLASK_SECRET')
 
 client = SpotifyClient()
 
@@ -144,13 +143,6 @@ def save_queue():
         return redirect(url_for('playlists'))
     flash(f"Saved queue to playlist: {playlist['name']}", "success")
     return redirect(url_for('playlists'))
-
-
-@app.route("/logout")
-def logout():
-    client.logout()
-    flash("Logged out.", "info")
-    return redirect(url_for('index'))
 
 
 if __name__ == "__main__":
