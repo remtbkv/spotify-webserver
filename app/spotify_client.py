@@ -22,10 +22,20 @@ class SpotifyClient:
         # environments creating it at import-time can register handlers or
         # otherwise interact with vendor code that causes shutdown errors.
         self.sp_oauth = None
+        # Normalize redirect URI so it always ends with '/callback'. Some
+        # deployments or envs may set the base domain only (e.g.
+        # 'https://example.vercel.app') — we want the full callback path.
+        raw_redirect = os.getenv("SPOTIPY_REDIRECT_URI")
+        if raw_redirect:
+            # remove trailing slash and ensure '/callback' appended
+            raw_redirect = raw_redirect.rstrip('/') + '/callback'
+        else:
+            raw_redirect = "http://127.0.0.1:9090/callback"
+
         self._oauth_config = {
             'client_id': os.getenv("SPOTIPY_CLIENT_ID"),
             'client_secret': os.getenv("SPOTIPY_CLIENT_SECRET"),
-            'redirect_uri': os.getenv("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:9090/callback"),
+            'redirect_uri': raw_redirect,
             'scope': self.scope,
             'cache_path': None,
         }

@@ -1,7 +1,7 @@
 import os
 import logging
 import sys
-from flask import Flask, render_template, redirect, url_for, request, flash, session, send_from_directory
+from flask import Flask, render_template, redirect, url_for, request, flash, session, send_from_directory, jsonify
 from werkzeug.exceptions import HTTPException
 from app.spotify_client import SpotifyClient
 
@@ -107,6 +107,32 @@ def favicon():
     except Exception:
         # Don't raise — browsers will survive without a favicon.
         return ('', 204)
+
+
+@app.route('/_diag')
+def diag_envs():
+    """Protected diagnostic endpoint that returns masked presence/length
+    of the important environment variables. Requires the app secret as
+    either `diag_key` query parameter or `X-DIAG-KEY` header. This is
+    intentional: it shows only masked lengths and presence, no secrets.
+    Use: GET /_diag?diag_key=<FLASK_SECRET>
+    """
+    key = request.args.get('diag_key') or request.headers.get('X-DIAG-KEY')
+    if not key or key != app.secret_key:
+        return ('Not authorized', 401)
+
+    def _mask(v: str) -> str:
+        if not v:
+            return '<MISSING>'
+        return f'<{len(v)} chars>'
+
+    data = {
+        'SPOTIPY_CLIENT_ID': _mask(os.getenv('SPOTIPY_CLIENT_ID')),
+        'SPOTIPY_CLIENT_SECRET': _mask(os.getenv('SPOTIPY_CLIENT_SECRET')),
+        'SPOTIPY_REDIRECT_URI': _mask(os.getenv('SPOTIPY_REDIRECT_URI')),
+        'FLASK_SECRET': _mask(os.getenv('FLASK_SECRET')),
+    }
+    return jsonify(data)
 
 
 @app.route("/")
