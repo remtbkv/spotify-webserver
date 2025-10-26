@@ -1,0 +1,86 @@
+:root{
+  --bg:#fbfbfc; --muted:#6b7280; --accent:#1db954; --card:#ffffff; --border:#e6e7eb;
+  --max-w:900px;
+}
+*{box-sizing:border-box}
+body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:#111; margin:0; padding:0;}
+.container{max-width:var(--max-w); margin:0 auto; padding:20px;}
+.header{background:var(--card); border-bottom:1px solid var(--border);} 
+.header .container{display:flex; align-items:center; justify-content:space-between;}
+.header h1{margin:0; font-size:18px;}
+.header a{color:inherit; text-decoration:none;}
+nav a{margin-left:12px; color:var(--muted); text-decoration:none;}
+.btn{background:var(--accent); color:white; padding:8px 12px; border-radius:6px; text-decoration:none; border:none; cursor:pointer;}
+.hero{padding:40px 0; text-align:center;}
+.panel{background:var(--card); border:1px solid var(--border); border-radius:8px; margin:18px 0; overflow:hidden;}
+.panel-head{background:#fafafa; padding:12px 16px; font-weight:600; border-bottom:1px solid var(--border);}
+.panel-body{padding:16px;}
+.panel-foot{padding:8px 12px; display:flex; gap:8px; align-items:center;}
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px;}
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px;}
+.playlist{display:flex; align-items:center; gap:12px; background:transparent; padding:8px; border-radius:6px;}
+.playlist input{ /* normalize checkbox size and alignment */
+  width:18px; height:18px; margin:0; padding:0; flex:0 0 auto; vertical-align:middle;
+}
+textarea{width:100%; padding:8px; border-radius:6px; border:1px solid var(--border)}
+input[type="text"], select, input{padding:8px; border-radius:6px; border:1px solid var(--border)}
+.flashes{list-style:none; padding:0; margin:8px 0;}
+.flash{padding:8px 12px; border-radius:6px; margin-bottom:6px;}
+.flash.success{background:#d1fae5; color:#064e3b;}
+.flash.error{background:#fee2e2; color:#7f1d1d;}
+.footer{padding:12px 0; color:var(--muted); text-align:center;}
+
+/* helper for collapsible playlist chooser */
+.hidden{display:none}
+.small-select{max-height:220px; overflow:auto; margin-top:8px;}
+.toggle-list{background:transparent; border:1px dashed var(--border); padding:6px 8px; border-radius:6px; cursor:pointer}
+.typeahead-list{border:1px solid var(--border); border-radius:6px; margin-top:10px; background:var(--card); max-height:220px; overflow:auto}
+.typeahead-item{padding:10px 12px; cursor:pointer; border-bottom:1px solid rgba(0,0,0,0.03)}
+.typeahead-item:hover{background:#f6f9f6}
+.toggle-panel{background:transparent; border:1px dashed var(--border); padding:6px 8px; border-radius:6px; cursor:pointer}
+
+/* form spacing: make label/input spacing consistent and comfortable */
+.panel-body label{display:block; margin-bottom:8px; font-weight:400}
+.panel-body p{margin:0 0 8px 0}
+.panel-body input, .panel-body .typeahead-list{margin-bottom:8px}
+
+/* consistent vertical rhythm inside panels */
+.panel-body > * { margin-bottom: 10px; }
+.panel-body > *:last-child { margin-bottom: 0; }
+
+/* inputs inside panel body should have consistent height */
+.panel-body input, .panel-body select, .panel-body textarea { padding:10px; min-height:40px; }
+
+/* ensure items in merge grid wrap nicely */
+/* keep playlist text inline so checkbox and label align horizontally */
+.playlist span{display:inline-block}
+
+/* Toast styles */
+#toast-root{position:fixed; right:20px; top:20px; z-index:2000; display:flex; flex-direction:column; gap:8px;}
+.toast{min-width:180px; max-width:360px; padding:10px 14px; border-radius:8px; box-shadow:0 6px 18px rgba(15,23,42,0.12); transform:translateY(-6px) scale(0.98); opacity:0; transition:all 0.18s cubic-bezier(.2,.8,.2,1);}
+.toast.visible{transform:translateY(0) scale(1); opacity:1}
+.toast-info{background:#eef2ff; color:#1e293b}
+.toast-success{background:#d1fae5; color:#064e3b}
+.toast-error{background:#fee2e2; color:#7f1d1d}
+
+/* Ensure inputs and placeholders are wide and usable */
+input, textarea, select { width: 100%; box-sizing: border-box; }
+
+/* panel-foot form controls: inputs expand, buttons keep size */
+.panel-foot input:not([type=hidden]){ flex: 1 1 auto; min-width: 140px; }
+.panel-foot{gap:8px; align-items:center; display:flex; flex-wrap:wrap}
+
+/* Make action buttons use the same font as rest of page */
+.btn{ font-family: inherit; font-weight: 400; }
+
+/* Mobile responsiveness tweaks */
+@media (max-width: 640px){
+  body{font-size:15px}
+  .container{padding:12px}
+  .panel-head{display:flex; justify-content:space-between; align-items:center}
+  .panel-body.grid{display:block}
+  .grid{grid-template-columns:1fr}
+  .panel-foot{flex-direction:column; align-items:stretch}
+  .panel-foot input:not([type=hidden]){width:100%}
+  .toggle-panel{padding:6px 10px}
+}

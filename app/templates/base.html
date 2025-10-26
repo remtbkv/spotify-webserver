@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Spotify Manager</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>/* small fallback font stack */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <h1>Spotify Manager</h1>
+    </div>
+  </header>
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul id="flashes" class="flashes" style="display:none">
+        {% for cat, msg in messages %}
+          <li class="flash {{ cat }}">{{ msg }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="container footer">
+    <small></small>
+  </footer>
+  <!-- Toast container -->
+  <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
+  <script>
+    // Toast utilities
+    function makeToast(message, type='info', timeout=4000){
+      const root = document.getElementById('toast-root');
+      if(!root) return;
+      const el = document.createElement('div');
+      el.className = 'toast ' + (type === 'success' ? 'toast-success' : type === 'error' ? 'toast-error' : 'toast-info');
+      el.textContent = message;
+      root.appendChild(el);
+      // show animation
+      requestAnimationFrame(()=> el.classList.add('visible'));
+      setTimeout(()=>{ el.classList.remove('visible'); setTimeout(()=> el.remove(), 300); }, timeout);
+      return el;
+    }
+
+    // On page load, convert server-side flash messages into toasts
+    document.addEventListener('DOMContentLoaded', function(){
+      const list = document.getElementById('flashes');
+      if(list){
+        Array.from(list.querySelectorAll('.flash')).forEach(li => {
+          const cls = li.className || '';
+          const type = cls.includes('success') ? 'success' : cls.includes('error') ? 'error' : 'info';
+          makeToast(li.textContent.trim(), type);
+        });
+      }
+
+      // Intercept form submissions to show a Working toast and disable other buttons
+      document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function(e){
+          // show working toast
+          makeToast('Working…', 'info', 60000);
+          // disable other buttons briefly to avoid duplicate submits
+          document.querySelectorAll('button, input[type=submit]').forEach(btn => btn.disabled = true);
+          // keep the current submit allowed to proceed (page will navigate)
+        });
+      });
+    });
+  </script>
+</body>
+</html>

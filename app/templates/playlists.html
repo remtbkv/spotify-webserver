@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Your Playlists</h2>
+  <p class="muted">Merge playlists, create a cleaned version without already-saved tracks, or save your queue to a playlist.</p>
+
+  <!-- Quick tips removed per user request -->
+  <form method="post" action="{{ url_for('merge') }}" class="panel">
+    <div class="panel-head">
+      <span>Select playlists to merge</span>
+      <button type="button" class="toggle-panel" onclick="togglePanel(this)">Show</button>
+    </div>
+    <div class="panel-body grid hidden">
+      {% for p in playlists %}
+        <label class="playlist">
+          <input type="checkbox" name="playlist" value="{{ p.id }}">
+          <span>{{ p.name }} ({{ p.tracks }})</span>
+        </label>
+      {% endfor %}
+    </div>
+    <div class="panel-foot">
+      <input name="name" placeholder="Name for merged playlist">
+      <button class="btn">Merge</button>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('clean') }}" class="panel">
+    <div class="panel-head">Clean a playlist</div>
+    <div class="panel-body">
+      <label for="clean_playlist_name">Type playlist name</label>
+      <input id="clean_playlist_name" name="clean_playlist_name" placeholder="Start typing to see matches" autocomplete="off" />
+      <input type="hidden" id="clean_playlist" name="clean_playlist" value="" />
+
+      <div id="suggestions" class="typeahead-list hidden">
+        {% for p in playlists %}
+          <div class="typeahead-item" data-id="{{ p.id }}">{{ p.name }} ({{ p.tracks }})</div>
+        {% endfor %}
+      </div>
+
+      <!-- tip removed per request -->
+    </div>
+    <div class="panel-foot">
+      <input name="clean_name" placeholder="Name for cleaned playlist">
+      <button class="btn">Clean</button>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('save_queue') }}" class="panel">
+    <div class="panel-head">Save your active Spotify queue</div>
+    <div class="panel-body">
+      <p>The app will:
+        <ol>
+          <li>Mute volume</li>
+          <li>Skip through each queued song</li>
+          <li>Create new playlist with songs</li>
+        </ol>
+      </p>
+      <p class="muted small">Note: you can requeue the songs in one click from the new playlist</p>
+    </div>
+    <div class="panel-foot">
+        <input name="queue_name" placeholder="Name for queue playlist (optional)">
+        <button class="btn">Save Queue</button>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('update_liked') }}" class="panel">
+    <div class="panel-head">Update liked playlist</div>
+    <div class="panel-body">
+      <p>Overwrite a playlist with your liked songs</p>
+      <br>
+      <label for="liked_name">Playlist name (optional)</label>
+      <input id="liked_name" name="liked_name" placeholder="Liked songs as playlist">
+    </div>
+    <div class="panel-foot">
+      <button class="btn">Update</button>
+    </div>
+  </form>
+  <script>
+    // Toggle a panel body visibility (used for merge panel)
+    function togglePanel(btn){
+      const head = btn.parentElement;
+      const body = head.nextElementSibling;
+      if(!body) return;
+      const hidden = body.classList.toggle('hidden');
+      btn.textContent = hidden ? 'Show' : 'Hide';
+    }
+
+    // Typeahead for clean playlist
+    (function(){
+      const input = document.getElementById('clean_playlist_name');
+      const hidden = document.getElementById('clean_playlist');
+      const box = document.getElementById('suggestions');
+      if(!input || !box) return;
+      const items = Array.from(box.querySelectorAll('.typeahead-item'));
+
+      input.addEventListener('input', function(e){
+        const q = (this.value || '').trim().toLowerCase();
+        if(!q){
+          box.classList.add('hidden');
+          hidden.value = '';
+          return;
+        }
+        let shown = 0;
+        items.forEach(it => {
+          const text = it.textContent.trim().toLowerCase();
+          if(text.indexOf(q) !== -1 && shown < 8){
+            it.style.display = '';
+            shown += 1;
+          } else {
+            it.style.display = 'none';
+          }
+        });
+        if(shown) box.classList.remove('hidden'); else box.classList.add('hidden');
+        // clear any previously selected id because user changed text
+        hidden.value = '';
+      });
+
+      items.forEach(it => it.addEventListener('click', function(){
+        // set input to playlist name (strip trailing ' (N)')
+        const txt = this.textContent.replace(/\s*\(\d+\)$/, '').trim();
+        input.value = txt;
+        hidden.value = this.dataset.id || '';
+        box.classList.add('hidden');
+      }));
+
+      // hide suggestions when clicking outside
+      document.addEventListener('click', function(e){
+        if(!box.contains(e.target) && e.target !== input){
+          box.classList.add('hidden');
+        }
+      });
+
+      // allow escape to close
+      input.addEventListener('keydown', function(e){
+        if(e.key === 'Escape') box.classList.add('hidden');
+      });
+    })();
+  </script>
+{% endblock %}
