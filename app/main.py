@@ -1,11 +1,91 @@
 import os
-from flask import Flask, render_template, redirect, url_for, request, flash
+import logging
+import sys
+from flask import Flask, render_template, redirect, url_for, request, flash, session
 from spotify_client import SpotifyClient
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
-app.secret_key = os.getenv('FLASK_SECRET')
+app.secret_key = os.getenv('FLASK_SECRET', 'dev-secret-key')
 
+# --- Diagnostics / logging setup -------------------------------------------------
+# Configure logger to write to stdout so Vercel captures it in deployment logs.
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s')
+handler.setFormatter(formatter)
+if not app.logger.handlers:
+    app.logger.addHandler(handler)
+app.logger.setLevel(logging.INFO)
+
+
+def _mask_val(v: str) -> str:
+    if not v:
+        return '<MISSING>'
+    return f'<{len(v)} chars>'
+
+
+def run_startup_diagnostics():
+    """Log presence (but not values) of important environment variables.
+
+    Set MANDATORY_ENV_CHECK=1 in the environment (Vercel) to make this
+    raise a RuntimeError on missing variables so the deployment fails loudly
+    and the stack trace is visible in logs.
+    """
+    required = [
+        'FLASK_SECRET',
+        'SPOTIPY_CLIENT_ID',
+        'SPOTIPY_CLIENT_SECRET',
+        'SPOTIPY_REDIRECT_URI',
+    ]
+    missing = []
+    app.logger.info('Running startup diagnostics...')
+    for k in required:
+        v = os.getenv(k)
+        present = bool(v)
+        app.logger.info(f'ENV {k}: present={present} ({_mask_val(v)})')
+        if not present:
+            missing.append(k)
+
+    # Log if session currently has token_info (useful for debugging auth flows)
+    try:
+        has_token = 'token_info' in session
+        app.logger.info(f'session has token_info: {has_token}')
+    except Exception:
+        # session may not be available at import-time in some WSGI setups; swallow silently
+        app.logger.info('session object not available at startup')
+
+    if missing:
+        app.logger.warning(f'Missing required env vars: {missing}')
+        if os.getenv('MANDATORY_ENV_CHECK') == '1':
+            raise RuntimeError(f'Missing required env vars: {missing}')
+
+
+# Run diagnostics now (non-fatal by default)
+try:
+    run_startup_diagnostics()
+except Exception:
+    app.logger.exception('Startup diagnostics failed')
+    raise
+
+# Instantiate Spotify client after diagnostics so any exceptions are logged cleanly
 client = SpotifyClient()
+
+
+# Global error handler to log full tracebacks to Vercel logs
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    app.logger.exception('Unhandled exception during request')
+    # Return a generic 500 to the client; the logs will contain details
+    return 'Internal Server Error', 500
+
+# Log incoming requests (path + method) to help trace 500s
+@app.before_request
+def log_request_info():
+    app.logger.info(f'Incoming request: {request.method} {request.path}')
+    try:
+        app.logger.info(f'session keys: {list(session.keys())}')
+    except Exception:
+        pass
 
 
 @app.route("/")

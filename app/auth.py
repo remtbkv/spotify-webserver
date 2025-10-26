@@ -1,6 +1,5 @@
 from flask import Blueprint, redirect, request, session, url_for
-import os
-import spotipy
+import os, spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
 auth_bp = Blueprint('auth', __name__)
