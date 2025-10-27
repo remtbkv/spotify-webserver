@@ -13,21 +13,56 @@ nav a{margin-left:12px; color:var(--muted); text-decoration:none;}
 .btn{background:var(--accent); color:white; padding:8px 12px; border-radius:6px; text-decoration:none; border:none; cursor:pointer;}
 .hero{padding:40px 0; text-align:center;}
 .panel{background:var(--card); border:1px solid var(--border); border-radius:8px; margin:18px 0; overflow:hidden;}
-.panel-head{background:#fafafa; padding:12px 16px; font-weight:600; border-bottom:1px solid var(--border);}
-.panel-body{padding:16px;}
-.panel-foot{padding:8px 12px; display:flex; gap:8px; align-items:center;}
-.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px;}
+.panel-head{background:#fafafa; padding:12px 16px; font-weight:600; border-bottom:1px solid var(--border);} 
+.panel-body{padding:12px 16px;}
+.panel-foot{padding:12px 16px; display:flex; gap:8px; align-items:center;}
 .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px;}
-.playlist{display:flex; align-items:center; gap:12px; background:transparent; padding:8px; border-radius:6px;}
-.playlist input{ /* normalize checkbox size and alignment */
-  width:18px; height:18px; margin:0; padding:0; flex:0 0 auto; vertical-align:middle;
+.playlist{display:grid; grid-template-columns:22px 1fr; column-gap:12px; background:transparent; padding:8px; border-radius:6px; align-items:start}
+.playlist input{ /* checkbox in a fixed first column */
+  width:18px; height:18px; margin:0; padding:0; justify-self:start; align-self:start; box-sizing:content-box;
 }
+
+/* Nudge checkboxes slightly upwards to visually align with the first text line
+   across browsers. Adjust -1px/ -2px as needed for pixel-perfect fit. */
+.playlist input{ margin-top: -2px; }
+
+/* Ensure playlist children (checkbox and text container) align to the top of the row
+   so checkbox is flush with the first line of wrapped playlist names. */
+.playlist > * { align-self: start; }
+.playlist span { margin:0; padding:0; }
 /* Reduce vertical spacing for the merge playlist chooser so rows sit closer */
 .panel .panel-body.grid{ gap:8px; }
-.panel .panel-body.grid .playlist{ padding:4px 6px; gap:6px; }
+.panel .panel-body.grid .playlist{ padding:4px 6px; column-gap:6px; }
 /* tighten vertical rhythm specifically for items inside the grid */
 .panel .panel-body.grid > * { margin-bottom: 4px; }
 .panel .panel-body.grid > *:last-child { margin-bottom: 0; }
+
+/* Compact mode for collapsible chooser: very tight rows but keep checkbox inline
+   Use by adding the `compact` class to the `.panel-body.grid` element, e.g.
+   <div class="panel-body grid compact"> ... </div>
+   Target row height ~20px while keeping checkbox vertically centered with the
+   first line of text. */
+.panel .panel-body.grid.compact{ gap:0; }
+/* COMPACT (re-applied): very tight rows for collapsible chooser. */
+/* Use by adding the `compact` class to the `.panel-body.grid` element, e.g.
+   <div class="panel-body grid compact"> ... </div> */
+.panel .panel-body.grid.compact .playlist{
+  display:grid;
+  grid-template-columns:18px 1fr;
+  column-gap:8px;
+  padding:1px 6px;       /* minimal vertical padding */
+  font-size:12px;        /* smaller font to compress height */
+  line-height:1;         /* tight line-height */
+  min-height:0;          /* allow smaller rows */
+  align-items:start;     /* align checkbox to top of text */
+  overflow:hidden;
+}
+.panel .panel-body.grid.compact .playlist > * { align-self: start; }
+.panel .panel-body.grid.compact .playlist span{ margin:0; padding:0; }
+.panel .panel-body.grid.compact .playlist input{ width:14px; height:14px; margin:0; padding:0; justify-self:start; align-self:start }
+
+/* compact variant: small upward nudge as well */
+.panel .panel-body.grid.compact .playlist input{ margin-top: -12px; }
 textarea{width:100%; padding:8px; border-radius:6px; border:1px solid var(--border)}
 input[type="text"], select, input{padding:8px; border-radius:6px; border:1px solid var(--border)}
 .flashes{list-style:none; padding:0; margin:8px 0;}
@@ -63,21 +98,22 @@ input[type="text"], select, input{padding:8px; border-radius:6px; border:1px sol
 
 /* Toast styles */
 #toast-root{position:fixed; right:20px; top:20px; z-index:2000; display:flex; flex-direction:column; gap:8px;}
-.toast{min-width:180px; max-width:360px; padding:10px 14px; border-radius:8px; box-shadow:0 6px 18px rgba(15,23,42,0.12); transform:translateY(-6px) scale(0.98); opacity:0; transition:all 0.18s cubic-bezier(.2,.8,.2,1);}
+.toast{min-width:180px; max-width:360px; padding:10px 14px; border-radius:8px; box-shadow:0 6px 18px rgba(15,23,42,0.12); transform:translateY(-6px) scale(0.98); opacity:0; transition:all 0.18s cubic-bezier(.2,.8,.2,1);} 
 .toast.visible{transform:translateY(0) scale(1); opacity:1}
 .toast-info{background:#eef2ff; color:#1e293b}
-.toast-success{background:#d1fae5; color:#064e3b}
+.toast-success{background:var(--accent); color:#fff}
 .toast-error{background:#fee2e2; color:#7f1d1d}
 
 /* Ensure inputs and placeholders are wide and usable */
 input, textarea, select { width: 100%; box-sizing: border-box; }
 
 /* panel-foot form controls: inputs expand, buttons keep size */
-.panel-foot input:not([type=hidden]){ flex: 1 1 auto; min-width: 140px; }
+.panel-foot input:not([type=hidden]){ flex: 1 1 auto; min-width: 140px; min-height:36px; }
 .panel-foot{gap:8px; align-items:center; display:flex; flex-wrap:wrap}
 
 /* Make action buttons use the same font as rest of page */
 .btn{ font-family: inherit; font-weight: 400; }
+.panel-foot .btn{ height:36px; display:inline-flex; align-items:center; justify-content:center; }
 
 /* Mobile responsiveness tweaks */
 @media (max-width: 640px){
@@ -90,3 +126,4 @@ input, textarea, select { width: 100%; box-sizing: border-box; }
   .panel-foot input:not([type=hidden]){width:100%}
   .toggle-panel{padding:6px 10px}
 }
+

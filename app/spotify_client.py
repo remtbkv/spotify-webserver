@@ -17,31 +17,13 @@ class SpotifyClient:
             "user-read-playback-state user-read-recently-played user-read-currently-playing "
             "user-read-playback-position user-modify-playback-state"
         )
-
-        # Delay creating SpotifyOAuth until it's needed. In serverless
-        # environments creating it at import-time can register handlers or
-        # otherwise interact with vendor code that causes shutdown errors.
         self.sp_oauth = None
-        # Normalize redirect URI so it always ends with '/callback'. Some
-        # deployments or envs may set the base domain only (e.g.
-        # 'https://example.vercel.app') — we want the full callback path.
-        raw_redirect = os.getenv("SPOTIPY_REDIRECT_URI")
-        if raw_redirect:
-            # Normalize but avoid duplicating '/callback' if the value
-            # already contains it. Examples we want to accept:
-            # - https://example.vercel.app
-            # - https://example.vercel.app/
-            # - https://example.vercel.app/callback
-            raw_redirect = raw_redirect.rstrip('/')
-            if not raw_redirect.endswith('/callback'):
-                raw_redirect = raw_redirect + '/callback'
-        else:
-            raw_redirect = "http://127.0.0.1:9090/callback"
+        redirect = os.getenv("SPOTIPY_REDIRECT_URI")
 
         self._oauth_config = {
             'client_id': os.getenv("SPOTIPY_CLIENT_ID"),
             'client_secret': os.getenv("SPOTIPY_CLIENT_SECRET"),
-            'redirect_uri': raw_redirect,
+            'redirect_uri': redirect,
             'scope': self.scope,
             'cache_path': None,
         }

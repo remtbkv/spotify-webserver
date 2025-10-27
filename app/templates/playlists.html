@@ -1,15 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-  <h2>Your Playlists</h2>
-  <p class="muted">Merge playlists, create a cleaned version without already-saved tracks, or save your queue to a playlist.</p>
+  <p class="muted">Merge playlists, remove dupes, save queue, or save liked songs to playlist.</p>
 
-  <!-- Quick tips removed per user request -->
   <form method="post" action="{{ url_for('merge') }}" class="panel">
     <div class="panel-head">
       <span>Select playlists to merge</span>
       <button type="button" class="toggle-panel" onclick="togglePanel(this)">Show</button>
     </div>
-    <div class="panel-body grid hidden">
+    <div class="panel-body grid compact hidden">
       {% for p in playlists %}
         <label class="playlist">
           <input type="checkbox" name="playlist" value="{{ p.id }}">
@@ -35,8 +33,6 @@
           <div class="typeahead-item" data-id="{{ p.id }}">{{ p.name }} ({{ p.tracks }})</div>
         {% endfor %}
       </div>
-
-      <!-- tip removed per request -->
     </div>
     <div class="panel-foot">
       <input name="clean_name" placeholder="Name for cleaned playlist">
@@ -45,16 +41,16 @@
   </form>
 
   <form method="post" action="{{ url_for('save_queue') }}" class="panel">
-    <div class="panel-head">Save your active Spotify queue</div>
+    <div class="panel-head">Save queue</div>
     <div class="panel-body">
-      <p>The app will:
-        <ol>
-          <li>Mute volume</li>
-          <li>Skip through each queued song</li>
-          <li>Create new playlist with songs</li>
-        </ol>
-      </p>
-      <p class="muted small">Note: you can requeue the songs in one click from the new playlist</p>
+      <p>The app will:</p>
+      <ol>
+        <li>Mute volume</li>
+        <li>Skip through each queued song</li>
+        <li>Create new playlist with songs</li>
+        <li>Restore volume and progress in original song</li>
+      </ol>
+      <p>Note: you can requeue the songs in one click from the new playlist</p>
     </div>
     <div class="panel-foot">
         <input name="queue_name" placeholder="Name for queue playlist (optional)">
@@ -66,11 +62,9 @@
     <div class="panel-head">Update liked playlist</div>
     <div class="panel-body">
       <p>Overwrite a playlist with your liked songs</p>
-      <br>
-      <label for="liked_name">Playlist name (optional)</label>
-      <input id="liked_name" name="liked_name" placeholder="Liked songs as playlist">
     </div>
     <div class="panel-foot">
+      <input id="liked_name" name="liked_name" placeholder="Liked songs as playlist">
       <button class="btn">Update</button>
     </div>
   </form>

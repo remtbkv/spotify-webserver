@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Helper runner to start the Flask app locally from the repository root.
 
 Use this script when developing locally so imports resolve the same way
