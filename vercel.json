@@ -8,7 +8,7 @@
     "routes": [
         {
             "src": "/static/(.*)",
-            "dest": "/app/static/$1",
+            "dest": "/public/static/$1",
             "headers": { "cache-control": "public, max-age=3600, stale-while-revalidate=86400" }
         },
         {
