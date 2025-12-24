@@ -29,12 +29,10 @@ class SpotifyClient:
         }
 
     def _ensure_token(self):
-        # Ensure OAuth helper exists before token ops
         self._ensure_oauth()
         token_info = session.get("token_info")
         if not token_info:
             return None
-        # refresh token if expired
         if self.sp_oauth.is_token_expired(token_info):
             refreshed = self.sp_oauth.refresh_access_token(token_info.get("refresh_token"))
             # refresh_access_token returns a dict with new access_token and expires_at
@@ -51,18 +49,13 @@ class SpotifyClient:
         code = request_args.get("code")
         if not code:
             return None
-        # exchange code for token
-        # Note: different spotipy versions return either a dict or an oauth object; handle both
         self._ensure_oauth()
         try:
             token_info = self.sp_oauth.get_access_token(code)
         except SpotifyOauthError as e:
-            # Log and store a short, non-secret error in the session so the
-            # web handler can show a helpful message to the user.
             logger = logging.getLogger(__name__)
             logger.warning("Spotify OAuth error during token exchange: %s", e)
             try:
-                # keep only the short spotify error text (no secrets)
                 session['oauth_error'] = str(e)
             except Exception:
                 pass
@@ -71,11 +64,9 @@ class SpotifyClient:
             logger = logging.getLogger(__name__)
             logger.exception("Unexpected error during Spotify token exchange: %s", e)
             return None
-        # ensure token_info is a dict
         if hasattr(token_info, "get"):
             session["token_info"] = token_info
         else:
-            # fallback if returned value is different
             session["token_info"] = dict(token_info)
         self.sp = spotipy.Spotify(auth=session["token_info"]["access_token"]) 
         return self.sp
@@ -110,9 +101,72 @@ class SpotifyClient:
                 results = self.sp.next(results)
             else:
                 break
-        # sort playlists alphabetically by name for consistent UI
         playlists.sort(key=lambda p: (p.get('name') or '').lower())
         return playlists
+
+    def get_user_playlists(self, user_id):
+        """Return public playlists for the given user id as a list of dicts.
+        Each dict contains id, name, tracks, and (optional) description.
+        """
+        if not self._ensure_token():
+            return []
+        playlists = []
+        try:
+            results = self.sp.user_playlists(user_id, limit=50)
+        except Exception:
+            return []
+        while results:
+            for p in results.get('items', []):
+                playlists.append({
+                    'id': p['id'],
+                    'name': p['name'],
+                    'tracks': p['tracks']['total'],
+                    'images': p.get('images', []),
+                })
+            if results.get('next'):
+                results = self.sp.next(results)
+            else:
+                break
+        return playlists
+
+    def get_user_profile(self, user_id):
+        """Return minimal profile info for the given user id: display_name and avatar url (or None)."""
+        if not self._ensure_token():
+            return {'id': user_id, 'display_name': user_id, 'avatar': None}
+        try:
+            u = self.sp.user(user_id)
+            name = u.get('display_name') or u.get('id') or user_id
+            images = u.get('images') or []
+            avatar = images[0]['url'] if images else None
+            return {'id': user_id, 'display_name': name, 'avatar': avatar}
+        except Exception:
+            return {'id': user_id, 'display_name': user_id, 'avatar': None}
+
+    def get_playlist(self, playlist_id):
+        """Return raw playlist object for the given id, or None on failure."""
+        if not self._ensure_token():
+            return None
+        try:
+            return self.sp.playlist(playlist_id)
+        except Exception:
+            return None
+
+    def create_playlist_from_tracks(self, name, track_uris, public=False):
+        """Create a new playlist for the current user and add the given track URIs.
+        Returns the created playlist object or None on failure.
+        """
+        if not self._ensure_token():
+            return None
+        try:
+            user = self.sp.current_user()['id']
+            playlist = self.sp.user_playlist_create(user, name, public=public)
+            pid = playlist['id']
+            for i in range(0, len(track_uris), 100):
+                self.sp.playlist_add_items(pid, track_uris[i:i+100])
+            # fetch fresh playlist object
+            return self.sp.playlist(pid)
+        except Exception:
+            return None
 
     def update_liked_playlist(self, playlist_name="Liked songs as playlist"):
         """
@@ -123,7 +177,6 @@ class SpotifyClient:
         if not self._ensure_token():
             return None
 
-        # fetch all liked songs
         ids = []
         results = self.sp.current_user_saved_tracks(limit=50)
         while results:
@@ -137,7 +190,6 @@ class SpotifyClient:
                 break
 
         user = self.sp.current_user()['id']
-        # find existing playlist with that name (only search user's playlists)
         existing = None
         pls = self.get_playlists()
         for p in pls:
@@ -147,16 +199,13 @@ class SpotifyClient:
 
         if existing:
             pid = existing
-            # replace items
             try:
                 self.sp.playlist_replace_items(pid, [])
             except Exception:
-                # fallback: create new
                 pid = self.sp.user_playlist_create(user, playlist_name, public=False)['id']
         else:
             pid = self.sp.user_playlist_create(user, playlist_name, public=False)['id']
 
-        # add tracks in batches
         for i in range(0, len(ids), 100):
             self.sp.playlist_add_items(pid, ids[i:i+100])
 
@@ -171,11 +220,106 @@ class SpotifyClient:
             for item in results.get("items", []):
                 t = item.get("track")
                 if t and t.get("id"):
-                    tracks.append({"id": t["id"], "uri": t["uri"], "name": t.get("name")})
+                    tracks.append({
+                        "id": t["id"],
+                        "uri": t.get("uri"),
+                        "name": t.get("name"),
+                    })
             if results.get("next"):
                 results = self.sp.next(results)
             else:
                 break
+        return tracks
+
+    def get_playlist_tracks_meta(self, playlist_id):
+        """Return track metadata for a playlist: id, uri, name, artists (string), album_image."""
+        if not self._ensure_token():
+            return []
+        tracks = []
+        results = self.sp.playlist_items(playlist_id, fields="items.track(id,uri,name,artists,album),next", limit=100)
+        while results:
+            for item in results.get('items', []):
+                t = item.get('track')
+                if not t or not t.get('id'):
+                    continue
+                artists = ', '.join([a.get('name') for a in (t.get('artists') or []) if a.get('name')])
+                album = t.get('album') or {}
+                images = album.get('images') or []
+                album_img = images[0]['url'] if images else None
+                tracks.append({
+                    'id': t['id'],
+                    'uri': t.get('uri'),
+                    'name': t.get('name'),
+                    'artists': artists,
+                    'album_image': album_img,
+                })
+            if results.get('next'):
+                results = self.sp.next(results)
+            else:
+                break
+        return tracks
+
+    def save_tracks_to_library(self, track_ids):
+        """Save the given list of track IDs to the current user's library.
+        Returns True on success.
+        """
+        if not self._ensure_token():
+            return False
+        try:
+            # API accepts up to 50 ids per call
+            for i in range(0, len(track_ids), 50):
+                self.sp.current_user_saved_tracks_add(track_ids[i:i+50])
+            return True
+        except Exception:
+            return False
+
+    def get_saved_track_ids(self):
+        """Return a set of track IDs that the current user has saved (liked).
+        Useful for comparing another user's tracks against the current user's library.
+        """
+        if not self._ensure_token():
+            return set()
+        ids = []
+        try:
+            results = self.sp.current_user_saved_tracks(limit=50)
+            while results:
+                for item in results.get('items', []):
+                    t = item.get('track')
+                    if t and t.get('id'):
+                        ids.append(t['id'])
+                if results.get('next'):
+                    results = self.sp.next(results)
+                else:
+                    break
+        except Exception:
+            return set()
+        return set(ids)
+
+    def get_saved_tracks_meta(self):
+        """Return metadata for current user's saved tracks: list of dicts with id, name, artists (string), uri."""
+        if not self._ensure_token():
+            return []
+        tracks = []
+        try:
+            results = self.sp.current_user_saved_tracks(limit=50)
+            while results:
+                for item in results.get('items', []):
+                    t = item.get('track')
+                    if not t or not t.get('id'):
+                        continue
+                    artists = ', '.join([a.get('name') for a in (t.get('artists') or []) if a.get('name')])
+                    tracks.append({
+                        'id': t.get('id'),
+                        'uri': t.get('uri'),
+                        'name': t.get('name'),
+                        'artists': artists,
+                    })
+                if results.get('next'):
+                    results = self.sp.next(results)
+                else:
+                    break
+        except Exception:
+            return []
         return tracks
 
     def merge_playlists(self, playlist_ids, new_name="Merged Playlist"):
@@ -189,31 +333,95 @@ class SpotifyClient:
                     seen.add(t["uri"])
                     uris.append(t["uri"])
         user = self.sp.current_user()["id"]
-        playlist = self.sp.user_playlist_create(user, new_name)
+        playlist = self.sp.user_playlist_create(user, new_name, public=False)
         pid = playlist["id"]
         for i in range(0, len(uris), 100):
             self.sp.playlist_add_items(pid, uris[i:i+100])
         return playlist
 
-    def clean_out_playlist(self, playlist_id, new_name=None):
+    def clean_out_playlist(self, playlist_id, new_name=None, overwrite_playlist_id=None, progress_cb=None):
         if not self._ensure_token():
             return None
         tracks = self._get_playlist_tracks(playlist_id)
+        logger = logging.getLogger(__name__)
+        logger.info("clean_out_playlist called for playlist_id=%s (tracks=%s) overwrite_target=%s", playlist_id, len(tracks), overwrite_playlist_id)
+        # Build a set of track ids that are considered "saved" for the user.
+        # This includes tracks in the user's liked songs AND tracks appearing in
+        # any of the user's playlists (except the playlist being cleaned).
+        saved_ids = set()
+        try:
+            saved_ids = set(self.get_saved_track_ids())
+        except Exception:
+            saved_ids = set()
+
+        # Collect track ids from other user playlists (excluding the target playlist)
+        try:
+            user_playlists = self.get_playlists()
+            for p in user_playlists:
+                pid = p.get('id')
+                # Skip the playlist being cleaned and also skip the playlist
+                # that will be overwritten (if provided) so we don't treat it
+                # as a saved source. Including the overwrite target would
+                # incorrectly mark its tracks as "already saved" and produce
+                # an empty cleaned result when updating in-place.
+                if not pid or pid == playlist_id or (overwrite_playlist_id and pid == overwrite_playlist_id):
+                    continue
+                for t in self._get_playlist_tracks(pid):
+                    tid = t.get('id')
+                    if tid:
+                        saved_ids.add(tid)
+        except Exception:
+            # If anything goes wrong here, we gracefully fall back to using
+            # only the liked-songs set collected above.
+            logger.exception('Failed to collect tracks from user playlists for saved_ids')
+            pass
+
+        # Keep URIs whose track id is NOT present in saved_ids
         keep_uris = []
-        # check saved status in batches of 50
-        for i in range(0, len(tracks), 50):
-            ids = [t["id"] for t in tracks[i:i+50]]
-            contains = self.sp.current_user_saved_tracks_contains(ids)
-            for t, saved in zip(tracks[i:i+50], contains):
-                if not saved:
-                    keep_uris.append(t["uri"])
-        name = new_name or f"Cleaned - {time.strftime('%Y-%m-%d %H:%M')}"
-        user = self.sp.current_user()["id"]
-        playlist = self.sp.user_playlist_create(user, name)
-        pid = playlist["id"]
-        for i in range(0, len(keep_uris), 100):
-            self.sp.playlist_add_items(pid, keep_uris[i:i+100])
-        return playlist
+        total_tracks = len(tracks)
+        processed = 0
+        for t in tracks:
+            tid = t.get('id')
+            if not tid or tid not in saved_ids:
+                keep_uris.append(t.get('uri'))
+            processed += 1
+            # call progress callback if provided (processed, total)
+            try:
+                if progress_cb:
+                    progress_cb(processed, total_tracks)
+            except Exception:
+                # never let progress reporting break the operation
+                pass
+        # If an existing playlist id is provided and the user requested
+        # overwrite, replace its items. Otherwise create a new playlist
+        # with the requested name.
+        try:
+            original_count = len(tracks)
+            removed_count = original_count - len(keep_uris)
+            logger.info("clean_out_playlist summary: original=%d saved_ids=%d keep=%d removed=%d", original_count, len(saved_ids), len(keep_uris), removed_count)
+
+            if overwrite_playlist_id:
+                # Replace items in the existing playlist
+                try:
+                    self.sp.playlist_replace_items(overwrite_playlist_id, [])
+                except Exception:
+                    # If replace fails, attempt to continue by adding items
+                    pass
+                for i in range(0, len(keep_uris), 100):
+                    self.sp.playlist_add_items(overwrite_playlist_id, keep_uris[i:i+100])
+                pl = self.sp.playlist(overwrite_playlist_id)
+                return (pl, removed_count)
+
+            name = new_name or f"Cleaned - {time.strftime('%Y-%m-%d %H:%M')}"
+            user = self.sp.current_user()["id"]
+            playlist = self.sp.user_playlist_create(user, name, public=False)
+            pid = playlist["id"]
+            for i in range(0, len(keep_uris), 100):
+                self.sp.playlist_add_items(pid, keep_uris[i:i+100])
+            pl = self.sp.playlist(pid)
+            return (pl, removed_count)
+        except Exception:
+            return None
 
     def _get_current_track_id(self):
         cp = self.sp.currently_playing()
@@ -234,7 +442,7 @@ class SpotifyClient:
         if queue_uris:
             name = new_name or f"Saved Queue - {time.strftime('%Y-%m-%d %H:%M')}"
             user = self.sp.current_user()["id"]
-            playlist = self.sp.user_playlist_create(user, name)
+            playlist = self.sp.user_playlist_create(user, name, public=False)
             pid = playlist["id"]
             for i in range(0, len(queue_uris), 100):
                 self.sp.playlist_add_items(pid, queue_uris[i:i+100])

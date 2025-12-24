@@ -1,13 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-  <p class="muted">Merge playlists, remove dupes, save queue, or save liked songs to playlist.</p>
-
-  <form method="post" action="{{ url_for('merge') }}" class="panel">
+  <div id="page-data" data-playlists='{{ playlists | tojson | e }}' style="display:none"></div>
+  <form method="post" action="{{ url_for('merge') }}" class="panel ajax" x-data="{open:false}">
     <div class="panel-head">
       <span>Select playlists to merge</span>
-      <button type="button" class="toggle-panel" onclick="togglePanel(this)">Show</button>
+      <button type="button" class="toggle-panel" @click.prevent="open = !open" :aria-expanded="open.toString()"><span x-text="open ? 'Hide' : 'Show'"></span></button>
     </div>
-    <div class="panel-body grid compact hidden">
+    <div class="panel-body grid compact" x-show="open" x-collapse x-cloak>
       {% for p in playlists %}
         <label class="playlist">
           <input type="checkbox" name="playlist" value="{{ p.id }}">
@@ -21,29 +20,13 @@
     </div>
   </form>
 
-  <form method="post" action="{{ url_for('clean') }}" class="panel">
-    <div class="panel-head">Clean a playlist</div>
-    <div class="panel-body">
-      <label for="clean_playlist_name">Type playlist name</label>
-      <input id="clean_playlist_name" name="clean_playlist_name" placeholder="Start typing to see matches" autocomplete="off" />
-      <input type="hidden" id="clean_playlist" name="clean_playlist" value="" />
-
-      <div id="suggestions" class="typeahead-list hidden">
-        {% for p in playlists %}
-          <div class="typeahead-item" data-id="{{ p.id }}">{{ p.name }} ({{ p.tracks }})</div>
-        {% endfor %}
-      </div>
+  <form method="post" action="{{ url_for('save_queue') }}" class="panel ajax" x-data="{open:false}">
+    <div class="panel-head">
+      <span>Save queue</span>
+      <button type="button" class="toggle-panel" @click.prevent="open = !open" :aria-expanded="open.toString()"><span x-text="open ? 'Hide' : 'How?'"></span></button>
     </div>
-    <div class="panel-foot">
-      <input name="clean_name" placeholder="Name for cleaned playlist">
-      <button class="btn">Clean</button>
-    </div>
-  </form>
-
-  <form method="post" action="{{ url_for('save_queue') }}" class="panel">
-    <div class="panel-head">Save queue</div>
-    <div class="panel-body">
-      <p>The app will:</p>
+    <div class="panel-body" x-show="open" x-collapse x-cloak>
+      <p>There's no formal "queue" in the API, so the code will:</p>
       <ol>
         <li>Mute volume</li>
         <li>Skip through each queued song</li>
@@ -53,80 +36,123 @@
       <p>Note: you can requeue the songs in one click from the new playlist</p>
     </div>
     <div class="panel-foot">
-        <input name="queue_name" placeholder="Name for queue playlist (optional)">
-        <button class="btn">Save Queue</button>
+      <input name="queue_name" placeholder="Name for queue playlist (optional)">
+      <button class="btn">Save</button>
     </div>
   </form>
 
-  <form method="post" action="{{ url_for('update_liked') }}" class="panel">
-    <div class="panel-head">Update liked playlist</div>
+  <!-- Clean playlist panel (was accidentally removed) -->
+  <form method="post" action="{{ url_for('clean') }}" class="panel clean-panel ajax" x-data="{open:false}">
+    <div class="panel-head">
+      <span>Clean playlist</span>
+   <!-- This toggle only shows/hides the short explanatory text below; the
+     name input and matching suggestions remain visible. Default closed. -->
+   <button type="button" class="toggle-panel" @click.prevent="open = !open" :aria-expanded="open.toString()" aria-controls="clean-help"><span x-text="open ? 'Hide' : 'Why?'"></span></button>
+    </div>
     <div class="panel-body">
-      <p>Overwrite a playlist with your liked songs</p>
+      <div id="clean-help" class="inline-details" x-show="open" x-collapse x-cloak>
+        <ul class="clean-help-list">
+          <li>A song from the same artist but different albums isn't recognized as a duplicate</li>
+          <li>Keeping this in mind, any songs saved elsewhere will be removed from this playlist</li>
+          <li>Note: it creates a new playlist, never modifying any existing one</li>
+        </ul>
+      </div>
+      <div class="typeahead">
+        <input id="clean_playlist_name" name="clean_playlist_name" placeholder="Start typing playlist name">
+        <input type="hidden" id="clean_playlist" name="clean_playlist">
+        <input type="hidden" id="clean_overwrite" name="overwrite" value="">
+        <div id="suggestions" class="hidden">
+          {% for p in playlists %}
+            <div class="typeahead-item" data-id="{{ p.id }}">{{ p.name }} ({{ p.tracks }})</div>
+          {% endfor %}
+        </div>
+      </div>
     </div>
     <div class="panel-foot">
-      <input id="liked_name" name="liked_name" placeholder="Liked songs as playlist">
+      <button class="btn">Clean</button>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('update_liked') }}" class="panel ajax" x-data="{open:false}">
+    <div class="panel-head">
+      <span>Update Liked Songs playlist</span>
+      <button type="button" class="toggle-panel" @click.prevent="open = !open" :aria-expanded="open.toString()"><span x-text="open ? 'Hide' : 'What?'"></span></button>
+    </div>
+    <div class="panel-body" x-show="open" x-collapse x-cloak>
+      <ul class="clean-help-list">
+          <li>Overwrite a playlist with your liked songs so it's visible to others</li>
+          <li>Warning: this overwrites the content of the playlist so don't do anything silly</li>
+          <li>Default name is shown in the input field</li>
+        </ul>
+    </div>
+    <div class="panel-foot">
+      <input id="liked_name" name="liked_name" placeholder="'Liked songs as playlist'">
       <button class="btn">Update</button>
     </div>
   </form>
-  <script>
-    // Toggle a panel body visibility (used for merge panel)
-    function togglePanel(btn){
-      const head = btn.parentElement;
-      const body = head.nextElementSibling;
-      if(!body) return;
-      const hidden = body.classList.toggle('hidden');
-      btn.textContent = hidden ? 'Show' : 'Hide';
-    }
 
-    // Typeahead for clean playlist
-    (function(){
-      const input = document.getElementById('clean_playlist_name');
-      const hidden = document.getElementById('clean_playlist');
-      const box = document.getElementById('suggestions');
-      if(!input || !box) return;
-      const items = Array.from(box.querySelectorAll('.typeahead-item'));
+  <!-- Compare another user's playlists -->
+  <form method="get" action="{{ url_for('playlists') }}" class="panel" x-data="{open:false}">
+    <div class="panel-head">
+      <span>Compare another user's playlists</span>
+      <button type="button" class="toggle-panel" @click.prevent="open = !open" :aria-expanded="open.toString()"><span x-text="open ? 'Hide' : 'Which?'"></span></button>
+    </div>
+    <div class="panel-body" x-show="open" x-collapse x-cloak>
+      <p>This will fetch all public playlists from the given user's profile and display them with two options of filters: unique (unsaved) tracks and similar (saved) tracks. You can then save the unique tracks as a new playlist.</p>
+    </div>
+    <div class="panel-foot">
+      <input id="compare_user_input" name="compare_user" placeholder="User profile URL" value="{{ compare_user or '' }}">
+      <button type="button" id="compare_btn" class="btn">Compare</button>
+    </div>
+  </form>
 
-      input.addEventListener('input', function(e){
-        const q = (this.value || '').trim().toLowerCase();
-        if(!q){
-          box.classList.add('hidden');
-          hidden.value = '';
-          return;
-        }
-        let shown = 0;
-        items.forEach(it => {
-          const text = it.textContent.trim().toLowerCase();
-          if(text.indexOf(q) !== -1 && shown < 8){
-            it.style.display = '';
-            shown += 1;
-          } else {
-            it.style.display = 'none';
-          }
-        });
-        if(shown) box.classList.remove('hidden'); else box.classList.add('hidden');
-        // clear any previously selected id because user changed text
-        hidden.value = '';
-      });
-
-      items.forEach(it => it.addEventListener('click', function(){
-        // set input to playlist name (strip trailing ' (N)')
-        const txt = this.textContent.replace(/\s*\(\d+\)$/, '').trim();
-        input.value = txt;
-        hidden.value = this.dataset.id || '';
-        box.classList.add('hidden');
-      }));
-
-      // hide suggestions when clicking outside
-      document.addEventListener('click', function(e){
-        if(!box.contains(e.target) && e.target !== input){
-          box.classList.add('hidden');
-        }
-      });
-
-      // allow escape to close
-      input.addEventListener('keydown', function(e){
-        if(e.key === 'Escape') box.classList.add('hidden');
-      });
-    })();
-  </script>
+    {% if compare_playlists %}
+    <h3>Playlists from user</h3>
+    {% for pl in compare_playlists %}
+      <form method="post" action="{{ url_for('save_tracks') }}" class="panel" x-data="{open:false}">
+        <div class="panel-head">
+          <span>{{ pl.name }} ({{ pl.tracks_count }})</span>
+          <button type="button" class="toggle-panel" @click.prevent="open = !open" :aria-expanded="open.toString()"><span x-text="open ? 'Hide' : 'Show'"></span></button>
+        </div>
+        <div class="panel-body" x-show="open" x-collapse x-cloak>
+          <p>Tracks from this playlist. Check the songs you want to save to your library, then click "Save selected".</p>
+          <ul class="compare-tracks">
+            {% for t in pl.tracks %}
+              <li class="compare-track">
+                <label>
+                  <input type="checkbox" name="track_id" value="{{ t.id }}">
+                  <img src="{{ t.album_image }}" alt="cover" class="cover-thumb" loading="lazy" onerror="this.style.display='none'">
+                  <span class="track-meta">
+                    <div class="track-title">{{ t.name }}</div>
+                    <div class="track-artists">{{ t.artists }}</div>
+                  </span>
+                </label>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="panel-foot">
+          <input type="hidden" name="compare_user" value="{{ compare_user }}">
+          <button class="btn">Save selected</button>
+        </div>
+      </form>
+    {% endfor %}
+  {% endif %}
+  <!-- Confirmation modal (reused for Clean overwrite) -->
+  <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h3 id="confirm-modal-title">Confirm</h3>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-modal-message"></p>
+      </div>
+      <div class="modal-foot">
+        <button id="confirm-modal-ok" class="btn btn-danger">Yes</button>
+        <button id="confirm-modal-cancel" class="btn btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/playlists.js') }}" defer></script>
 {% endblock %}

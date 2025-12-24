@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="container">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px">
+      {% if result.profile and result.profile.avatar %}
+        <img src="{{ result.profile.avatar }}" alt="avatar" style="width:56px;height:56px;border-radius:50%;object-fit:cover">
+      {% endif %}
+      <div>
+        <div style="font-weight:700; font-size:18px">{{ (result.profile.display_name if result.profile else result.user) + "'s" }}</div>
+        <div style="color:var(--muted); font-size:14px">playlists filtered by unique or similar songs</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body">
+        {% for pl in result.playlists %}
+          <div class="panel playlist-block" data-plid="{{ pl.id }}" x-data="{ uniqueOpen:false, similarOpen:false, uniqueCount: {{ pl.unique_tracks|length }} }" style="margin-bottom:12px">
+            <div class="panel-head" style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+              <div><strong>{{ pl.name }}</strong> <small style="color:var(--muted)">({{ pl.tracks_count }})</small></div>
+              <div style="display:flex; gap:8px; align-items:center">
+                {% if pl.unique_tracks|length > 0 %}
+                  <button type="button" class="btn btn-small show-unique" data-plid="{{ pl.id }}" @click.prevent="uniqueOpen = !uniqueOpen; if(uniqueOpen) similarOpen = false"><span class="label">Unsaved ({{ pl.unique_tracks|length }})</span> <span class="chev">▾</span></button>
+                {% endif %}
+                {% if pl.similar_tracks|length > 0 %}
+                  <button type="button" class="btn btn-small show-similar" data-plid="{{ pl.id }}" @click.prevent="similarOpen = !similarOpen; if(similarOpen) uniqueOpen = false"><span class="label">Saved ({{ pl.similar_tracks|length }})</span> <span class="chev">▾</span></button>
+                {% endif %}
+              </div>
+            </div>
+            <div class="panel-body unique-list" x-show="uniqueOpen" x-collapse x-cloak>
+              {% if pl.unique_tracks|length == 0 %}
+                <p style="color:var(--muted)">No unique tracks for this playlist.</p>
+              {% else %}
+                <ul class="compare-tracks">
+                  {% for t in pl.unique_tracks %}
+                    <li class="compare-track">
+                      <img src="{{ t.album_image }}" class="cover-thumb" alt="cover" loading="lazy" onerror="this.style.display='none'">
+                      <div class="track-meta">
+                        <div class="track-title">{{ t.name }}</div>
+                        <div class="track-artists">{{ t.artists }}</div>
+                      </div>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+            </div>
+            <div class="panel-body similar-list" x-show="similarOpen" x-collapse x-cloak>
+              {% if pl.similar_tracks|length == 0 %}
+                <p style="color:var(--muted)">No similar (already-saved) tracks for this playlist.</p>
+              {% else %}
+                <ul class="compare-tracks">
+                  {% for t in pl.similar_tracks %}
+                    <li class="compare-track">
+                      <img src="{{ t.album_image }}" class="cover-thumb" alt="cover" loading="lazy" onerror="this.style.display='none'">
+                      <div class="track-meta">
+                        <div class="track-title">{{ t.name }}</div>
+                        <div class="track-artists">{{ t.artists }}</div>
+                      </div>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+            </div>
+              <div class="panel-foot">
+                <form class="save-generated" method="post" action="{{ url_for('save_generated', gid=result.id, plid=pl.id) }}" x-cloak>
+                  <input type="hidden" name="mode" x-bind:value="uniqueOpen ? 'unique' : (similarOpen ? 'similar' : (uniqueCount > 0 ? 'unique' : ''))">
+                  <!-- Show Save if there are unsaved tracks OR the unique panel is open; hide when similar panel is active -->
+                  <button type="submit" class="btn save-btn" x-show="(uniqueOpen || uniqueCount > 0) && !similarOpen">Save</button>
+                </form>
+              </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      'use strict';
+      document.addEventListener('DOMContentLoaded', function(){
+        // initialize save button text based on number of unique tracks
+        document.querySelectorAll('.playlist-block').forEach(block => {
+          const saveBtn = block.querySelector('.save-btn');
+          if(!saveBtn) return;
+          const n = block.querySelectorAll('.unique-list .compare-track').length;
+          saveBtn.textContent = n ? `Save (${n})` : 'Save';
+        });
+
+        // Attach AJAX handler for save-generated forms so we can replace button with a link
+        document.querySelectorAll('form.save-generated').forEach(form => {
+          form.addEventListener('submit', async function(e){
+            e.preventDefault();
+            const btn = form.querySelector('button');
+            if(window.UI && window.UI.setButtonWorking) window.UI.setButtonWorking(btn);
+            try{
+              const resp = await fetch(form.action, { method: 'POST', headers: {'X-Requested-With':'XMLHttpRequest'}, body: new FormData(form) });
+              const data = await resp.json();
+              if(!resp.ok || !data || !data.ok){
+                window.UI && window.UI.makeToast && window.UI.makeToast((data && data.error) || 'Failed to create playlist', 'error', 2500);
+                return;
+              }
+              const a = document.createElement('a');
+              a.href = data.url || '#';
+              a.target = '_blank';
+              a.className = 'btn';
+              a.textContent = data.name ? ('Open: ' + data.name) : 'Open playlist';
+              if(btn) btn.replaceWith(a);
+              window.UI && window.UI.makeToast && window.UI.makeToast('Playlist created', 'success', 2000);
+            }catch(err){
+              console && console.error && console.error(err);
+              window.UI && window.UI.makeToast && window.UI.makeToast('Network error', 'error', 1800);
+            }finally{
+              window.UI && window.UI.clearButtonWorking && window.UI.clearButtonWorking(btn);
+            }
+          });
+        });
+      });
+    })();
+  </script>
+{% endblock %}

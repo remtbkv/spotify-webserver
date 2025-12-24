@@ -5,14 +5,60 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Spotify Manager</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <style>/* small fallback font stack */
+  <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
   </style>
+  <!-- Critical: hide Alpine-cloaked elements until Alpine initializes to avoid FOUC -->
+  <style>[x-cloak], .x-cloak { display: none !important; }</style>
+  <!-- Hide main content immediately until Alpine removes the 'alpine-loading' class to avoid flash -->
+  <script>document.documentElement.classList.add('alpine-loading');</script>
+  <style>html.alpine-loading main.container{visibility:hidden!important;}</style>
 </head>
 <body>
   <header class="header">
     <div class="container">
-      <h1>Spotify Manager</h1>
+      <div class="brand">
+        <img src="{{ url_for('static', filename='spotify.png') }}" alt="Spotify" class="brand-mark">
+        <h1>Spotify Manager</h1>
+      </div>
+      {% if current_user %}
+        {# extract avatar url safely #}
+        {% set images = current_user.get('images') %}
+        <div class="user-info">
+          <div class="account-trigger" role="button" aria-haspopup="true" aria-expanded="false">
+            {% if images and images|length > 0 and images[0].get('url') %}
+              <img src="{{ images[0].get('url') }}" alt="avatar" class="avatar" loading="lazy" onerror="this.style.display='none'">
+            {% else %}
+              <!-- Placeholder avatar: music note inside a circle -->
+              <svg class="avatar placeholder" viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
+                <defs>
+                  <linearGradient id="g" x1="0" x2="1">
+                    <stop offset="0" stop-color="#1db954" />
+                    <stop offset="1" stop-color="#0ea34a" />
+                  </linearGradient>
+                </defs>
+                <circle cx="12" cy="12" r="12" fill="url(#g)" />
+                <path d="M9 9v6.5a2 2 0 0 0 2 2 2 2 0 0 0 2-2V10l4-1" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              </svg>
+            {% endif %}
+            <div class="user-meta">
+              <div class="name">{{ current_user.get('display_name') or current_user.get('id') }}</div>
+            </div>
+            <span class="chev" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+          </div>
+          <div class="account-menu" role="menu">
+            <form action="{{ url_for('logout') }}" method="post" style="margin:0;">
+              <button class="btn" type="submit">Log out</button>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        {# Intentionally empty: main login entry is on the landing page; remove top-right login when logged out to reduce distraction #}
+      {% endif %}
     </div>
   </header>
   <main class="container">
@@ -27,48 +73,29 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
-  <footer class="container footer">
-    <small></small>
+  <footer class="container footer site-footer">
+    <small>Mostly vibe coded — <strong><a href="https://github.com/remtbkv" target="_blank" rel="noopener">github.com/remtbkv</a></strong></small>
   </footer>
   <!-- Toast container -->
   <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
-  <script>
-    // Toast utilities
-    function makeToast(message, type='info', timeout=4000){
-      const root = document.getElementById('toast-root');
-      if(!root) return;
-      const el = document.createElement('div');
-      el.className = 'toast ' + (type === 'success' ? 'toast-success' : type === 'error' ? 'toast-error' : 'toast-info');
-      el.textContent = message;
-      root.appendChild(el);
-      // show animation
-      requestAnimationFrame(()=> el.classList.add('visible'));
-      setTimeout(()=>{ el.classList.remove('visible'); setTimeout(()=> el.remove(), 300); }, timeout);
-      return el;
-    }
-
-    // On page load, convert server-side flash messages into toasts
-    document.addEventListener('DOMContentLoaded', function(){
-      const list = document.getElementById('flashes');
-      if(list){
-        Array.from(list.querySelectorAll('.flash')).forEach(li => {
-          const cls = li.className || '';
-          const type = cls.includes('success') ? 'success' : cls.includes('error') ? 'error' : 'info';
-          makeToast(li.textContent.trim(), type);
-        });
-      }
-
-      // Intercept form submissions to show a Working toast and disable other buttons
-      document.querySelectorAll('form').forEach(form => {
-        form.addEventListener('submit', function(e){
-          // show working toast
-          makeToast('Working…', 'info', 60000);
-          // disable other buttons briefly to avoid duplicate submits
-          document.querySelectorAll('button, input[type=submit]').forEach(btn => btn.disabled = true);
-          // keep the current submit allowed to proceed (page will navigate)
-        });
-      });
+  <!-- Alpine.js + collapse plugin (used for smooth panel collapse animations) -->
+  <script defer src="https://unpkg.com/alpinejs@3.12.0/dist/cdn.min.js"></script>
+  <script defer src="https://unpkg.com/@alpinejs/collapse@3.10.3/dist/cdn.min.js"></script>
+  <script defer>
+    // Register plugin if available; be defensive about global names across versions
+    window.addEventListener('alpine:init', () => {
+      // remove the loading marker so content becomes visible once Alpine is ready
+      try{ document.documentElement.classList.remove('alpine-loading'); }catch(e){}
+      try{
+        if(window.Alpine && window.Alpine.plugin){
+          // plugin may expose Collapse, AlpineCollapse or Collapse
+          const plugin = window.Collapse || window.AlpineCollapse || window.CollapsePlugin || undefined;
+          if(plugin) Alpine.plugin(plugin);
+        }
+      }catch(e){ console && console.warn && console.warn('Alpine collapse plugin registration failed', e); }
     });
   </script>
+  <!-- Common JS (toasts, ajax forms, spinners, user menu) -->
+  <script src="{{ url_for('static', filename='js/common.js') }}" defer></script>
 </body>
 </html>

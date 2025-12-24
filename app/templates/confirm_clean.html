@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <h2>Confirm Clean</h2>
+  <p>A playlist named <strong>{{ cleaned_name }}</strong> already exists in your account.</p>
+  <p>Cleaning will generate a list of tracks not present in your library or other playlists. This can take some time for users with many playlists.</p>
+  <form method="post" action="{{ url_for('clean') }}">
+    <input type="hidden" name="clean_playlist" value="{{ pid }}">
+    <input type="hidden" name="clean_name" value="{{ cleaned_name }}">
+    <input type="hidden" name="overwrite" value="1">
+    <button type="submit" class="btn btn-danger">Overwrite existing playlist</button>
+    <a class="btn btn-secondary" href="{{ url_for('playlists') }}">Cancel</a>
+  </form>
+</div>
+{% endblock %}
