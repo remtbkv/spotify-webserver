@@ -1,0 +1,516 @@
+:root{
+  --bg:#fbfbfc; --muted:#6b7280; --accent:#1db954; --card:#ffffff; --border:#e6e7eb;
+  /* Wider page container so panels aren't too narrow on desktop */
+  --max-w:1100px;
+}
+/* Hide elements marked with Alpine's x-cloak until Alpine initializes to avoid FOUC */
+[x-cloak], .x-cloak { display: none !important; }
+*{box-sizing:border-box}
+body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:#111; margin:0; padding:0; min-height:100vh; display:flex; flex-direction:column;}
+.container{max-width:var(--max-w); margin:0 auto; padding:20px;}
+/* Make the main container grow to push the footer to the bottom when
+  content is short. Keep the .container utility unchanged for general
+  layout; target the main element specifically which uses class "container". */
+main.container{ flex: 1 0 auto; }
+/* Layout for main content: use a centered 60% width so panels feel roomy but
+  don't stretch edge-to-edge on very large screens. The max-width var keeps
+  an upper bound for readability and the min-width prevents extreme shrinkage. */
+main.container{ width: 50%; max-width: var(--max-w); min-width: 320px; margin-left: auto; margin-right: auto; }
+.header{background:var(--card); border-bottom:1px solid var(--border);} 
+.header .container{display:flex; align-items:center; justify-content:space-between;}
+/* Keep header content from stretching as far as the main container. This
+  keeps the logo and avatar visually closer while allowing the main
+  content to use a wider max width. */
+.header .container{ max-width: 900px; }
+.header h1{margin:0; font-size:18px;}
+
+/* Brand alignment: inline mark + title */
+.header .brand{ display:flex; align-items:center; gap:10px; }
+.brand-mark{ width:36px; height:36px; display:block; object-fit:contain }
+.header .brand h1{ margin:0; font-size:18px; font-weight:600; }
+
+/* header user-info: avatar + name; layout is right-aligned by virtue of the
+  header container's space-between layout. Keep this small and non-intrusive. */
+.header .user-info{display:flex; align-items:center; gap:8px; margin-left:12px}
+/* Disable text selection for everything in the header to prevent accidental
+   highlights when users click the title, avatar, name, or logout text. */
+.header, .header * { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
+.header .user-info .account-trigger{ display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:10px; cursor:pointer; border:1px solid rgba(0,0,0,0.03); background: rgba(0,0,0,0.02); -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
+.header .user-info .account-trigger:focus{ outline:2px solid rgba(29,185,84,0.15); }
+.header .user-info .chev{ font-size:12px; color:var(--muted); margin-left:6px; display:inline-block }
+.header .user-info .user-meta{display:flex; flex-direction:column; line-height:1; text-align:right}
+.header .user-info .name{font-weight:600; color:#111}
+.header .user-info small{display:block; font-weight:400; color:var(--muted); font-size:12px}
+.header a{color:inherit; text-decoration:none;}
+/* Prevent text selection on interactive controls (buttons/toggles) */
+button, .btn, .toggle-panel, .account-trigger { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
+/* account menu (hover + click toggle). Position relative to .user-info */
+.header .user-info { position: relative; }
+.header .user-info .account-menu{
+  position: absolute;
+  right: 0;
+  /* overlap slightly so moving pointer from trigger -> menu doesn't leave a gap */
+  top: calc(100% - 6px);
+  min-width: 140px;
+  background: var(--card);
+  /* Option B: minimalist outer panel — remove border and soften shadow */
+  border: none;
+  box-shadow: 0 12px 36px rgba(15,23,42,0.06);
+  padding: 6px 6px; /* slightly tighter */
+  border-radius: 10px;
+  z-index: 1200;
+  /* start hidden but present for animation */
+  opacity: 0;
+  transform: translateY(-6px) scale(0.99);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 200ms cubic-bezier(.2,.8,.2,1), transform 220ms cubic-bezier(.2,.8,.2,1), visibility 200ms linear;
+}
+/* show on hover or when .open is present */
+.header .user-info:hover .account-menu,
+.header .user-info.open .account-menu{
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  visibility: visible;
+  pointer-events: auto;
+}
+.header .user-info .account-menu .btn{ width:100%; padding:8px 10px; font-size:14px; text-align:left; background:transparent; border:none; border-radius:6px; color:var(--text, #111); }
+.header .user-info .account-menu .btn:hover{ background: rgba(0,0,0,0.03); }
+.header .user-info .account-menu .btn:focus{ outline:2px solid rgba(29,185,84,0.12); }
+
+/* chevron rotates when open to indicate state */
+.header .user-info .chev{ transition: transform 180ms cubic-bezier(.2,.8,.2,1), color 140ms ease; display:inline-flex; align-items:center; }
+.header .user-info.open .chev{ transform: rotate(180deg); color: var(--muted); }
+
+/* Collapsible compact panel animation (used by merge chooser) */
+.panel .panel-body.grid.compact{
+  /* slightly longer transition for smoother appearance */
+  transition: max-height 320ms cubic-bezier(.2,.8,.2,1), opacity 240ms ease, transform 280ms cubic-bezier(.2,.8,.2,1);
+  max-height: 2000px; /* large enough to contain content when open */
+  opacity: 1;
+  transform: translateY(0);
+  overflow: visible;
+}
+.panel .panel-body.grid.compact.collapsed{
+  max-height: 0;
+  opacity: 0;
+  /* start slightly below and slide up into place when opening so it doesn't
+     visually fade into the header above */
+  transform: translateY(6px);
+  padding-top: 0 !important; /* collapse padding to reduce gap */
+  padding-bottom: 0 !important;
+  overflow: hidden;
+}
+
+/* General collapsible panel-body (for non-grid panels like Save queue) */
+.panel .panel-body{
+  /* default: no forced max-height so we can animate using JS-set inline max-height
+    which uses the element's scrollHeight for smooth transitions. Keep overflow
+    visible by default so non-collapsed panels behave normally. */
+  /* Increase durations and stagger opacity slightly to reduce the 'pop' effect */
+  transition: max-height 360ms cubic-bezier(.2,.8,.2,1), opacity 260ms ease 40ms, transform 320ms cubic-bezier(.2,.8,.2,1);
+  will-change: max-height, opacity, transform;
+  max-height: none;
+  opacity: 1;
+  transform: translateY(0);
+  overflow: visible;
+}
+.panel .panel-body.collapsed{
+  /* collapsed state uses max-height:0 and hidden overflow for smooth collapse */
+  /* Note: avoid !important here so JS (Alpine) can animate inline max-height values. */
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(6px);
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+/* When a panel body is collapsed, ensure its children do not contribute any
+   layout height (fixes phantom gaps caused by child margins). We remove the
+   `collapsed` class before measuring during open, so the animation still works. */
+
+
+/* Inline details toggle used in Save queue panel */
+.inline-toggle{ background:transparent; border:none; color:var(--accent); padding:0; font-weight:600; cursor:pointer }
+.inline-toggle:focus{ outline:2px solid rgba(29,185,84,0.12); border-radius:4px }
+.inline-details{ overflow:hidden; transition: max-height 260ms cubic-bezier(.2,.8,.2,1), opacity 220ms ease, transform 220ms cubic-bezier(.2,.8,.2,1); max-height:2000px; opacity:1; transform:translateY(0); }
+.inline-details.collapsed{ max-height:0; opacity:0; transform:translateY(6px); margin-bottom:0; }
+
+/* Make inline-details behave like a direct panel child in spacing so Clean
+  matches Update Liked exactly. When open it carries the same bottom gap; when
+  collapsed the bottom margin is removed. */
+.inline-details{ margin: 0; }
+.inline-details p{ margin: 0; }
+
+/* Styling for the list used in the Clean panel help so it matches the
+  spacing of the previous paragraphs and doesn't introduce extra default
+  browser margins. */
+.clean-help-list{ margin: 0 0 12px 16px; padding-left: 0; list-style-position: outside; }
+.clean-help-list li{ margin: 0 0 6px 0; }
+
+/* New inline toggle link + popover styles: underlined text with chevron that shows a floating
+   details popover on hover, or toggles persistently on click. Keeps keyboard accessibility. */
+.inline-toggle-wrapper{ position: relative; display: inline-block; }
+.inline-toggle-link{ color: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; background: transparent; border: none; padding: 0; font-weight: inherit; font-size: inherit; display:inline-flex; gap:6px; align-items:center; vertical-align:baseline }
+.inline-toggle-link:focus{ outline:2px solid rgba(29,185,84,0.12); border-radius:4px }
+.inline-chev{ width:12px; height:12px; display:inline-block; transition: transform 180ms cubic-bezier(.2,.8,.2,1), color 140ms ease; color: inherit; }
+
+/* popover positioning and transitions. Default is hidden (collapsed); visible on hover or when wrapper has .open */
+.inline-toggle-wrapper .inline-details{
+  /* make the details a normal flow child so it participates in panel spacing
+     and doesn't float; inherit look from panel-body for consistent spacing */
+  position: static;
+  left: auto; top: auto; right: auto;
+  z-index: auto;
+  width: auto; max-width: none;
+  background: transparent; border: none; border-radius: 0; padding: 0; box-shadow: none;
+}
+.inline-toggle-wrapper.open .inline-chev{ transform: rotate(180deg); }
+
+/* Make expanded help text non-selectable to avoid accidental highlights when
+   users toggle the little explanatory panels. This applies to the common
+   help elements across Save Queue, Clean, and Update Liked panels when they
+   are in an open state (i.e., not .collapsed). Inputs and interactive
+   controls remain selectable. */
+.panel .panel-body:not(.collapsed) > p,
+.panel .panel-body:not(.collapsed) > ol,
+.panel .panel-body:not(.collapsed) > ul,
+.panel .panel-body .inline-details:not(.collapsed) {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* On small screens keep the popover full width-ish */
+@media (max-width: 640px){
+  .inline-toggle-wrapper .inline-details{ left: 8px; right: 8px; width: auto; max-width: calc(100vw - 32px); }
+}
+
+/* Ensure the account menu isn't intrusive on small screens: make it full width under header */
+@media (max-width: 640px){
+  .header .user-info .account-menu{ right:8px; left:8px; top:calc(100% + 6px); }
+}
+nav a{margin-left:12px; color:var(--muted); text-decoration:none;}
+.btn{
+  /* Filled green with black text to match spotify mark */
+  background: var(--spotify-green, #1db954);
+  color: var(--spotify-black, #191414);
+  padding:8px 12px; border-radius:6px; text-decoration:none; border:1px solid rgba(0,0,0,0.08); cursor:pointer;
+  transition: background 160ms ease, color 160ms ease, transform 120ms ease, box-shadow 160ms ease, opacity 160ms ease, filter 160ms ease;
+}
+.btn:hover{ background: color-mix(in srgb, var(--spotify-green, #1db954) 85%, black); box-shadow: 0 8px 22px rgba(0,0,0,0.10); }
+.btn:disabled,
+.btn[disabled],
+.btn.disabled{
+  opacity: 0.85;
+  filter: grayscale(22%);
+  cursor: not-allowed;
+  box-shadow: none !important;
+  transform: none !important;
+  color: rgba(25,20,20,0.8);
+}
+.btn:disabled:hover,
+.btn[disabled]:hover{
+  box-shadow: none;
+}
+.btn.working{
+  opacity: 0.88;
+  filter: grayscale(20%);
+  cursor: not-allowed;
+  box-shadow: none !important;
+}
+/* small variant for inline show buttons (neutral style) */
+.btn-small{
+  background: transparent;
+  border: 1px solid var(--border);
+  color: inherit;
+  padding:6px 10px;
+  font-size:13px;
+  border-radius:6px;
+}
+.btn-small:hover{ background: rgba(0,0,0,0.03); }
+/* chevron inside small inline buttons */
+.btn-small .chev{ display:inline-block; margin-left:8px; font-size:12px; transition: transform 160ms ease; }
+.btn-small.open .chev{ transform: rotate(180deg); }
+.btn .spinner{
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  vertical-align: middle;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.12);
+  border-top-color: rgba(0,0,0,0.5);
+  animation: btn-spin 0.8s linear infinite;
+}
+@keyframes btn-spin{ from{ transform: rotate(0deg); } to{ transform: rotate(360deg); } }
+.hero{padding:40px 0; text-align:center;}
+
+/* Larger login CTA on the landing page. Use .login-spotify to scope the change. */
+.btn.login-spotify {
+  /* Adjusted: 30% smaller than previous size */
+  font-size: 20px; /* reduced from 28px */
+  padding: 10px 20px; /* reduced from 14px 28px */
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(32, 59, 76, 0.08);
+}
+
+.panel{background:var(--card); border:1px solid var(--border); border-radius:8px; margin:18px 0; overflow:hidden;}
+.panel-head{background:#fafafa; padding:12px 16px; font-weight:600; border-bottom:1px solid var(--border);} 
+.panel-body{padding:12px 16px;}
+
+/* Keep a small bottom padding for panel bodies so stacked panels retain
+   a consistent breathing room even when a panel-body is collapsed. This
+   prevents headers/footers from appearing flush against each other. */
+.panel .panel-body{ padding-bottom: 12px; }
+.panel-foot{padding:12px 16px; display:flex; gap:8px; align-items:center;}
+
+/* Scoped adjustments for the Clean panel: reduce the vertical gap between the
+  panel-body input (typeahead) and the action button so it visually matches
+  the Update Liked panel where the input lives in the panel-foot. We lower
+  the body's bottom padding and the foot's top padding only for this panel. */
+.clean-panel .panel-body{ padding-bottom: 4px; }
+.clean-panel .panel-foot{ padding-top: 4px; }
+.clean-panel .panel-body .typeahead{ margin-bottom: 0; }
+.clean-panel .panel-body .typeahead input{ margin-bottom: 0; }
+.grid{display:grid; /* responsive columns: prefer ~200px columns, auto-fit to 3/2/1 */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap:16px;}
+.playlist{display:grid; grid-template-columns:22px 1fr; column-gap:12px; background:transparent; padding:8px; border-radius:6px; align-items:start}
+.playlist input{ /* checkbox in a fixed first column */
+  width:18px; height:18px; margin:0; padding:0; justify-self:start; align-self:start; box-sizing:content-box;
+}
+
+/* Nudge checkboxes slightly upwards to visually align with the first text line
+   across browsers. Adjust -1px/ -2px as needed for pixel-perfect fit. */
+.playlist input{ margin-top: -2px; }
+
+/* Ensure playlist children (checkbox and text container) align to the top of the row
+   so checkbox is flush with the first line of wrapped playlist names. */
+.playlist > * { align-self: start; }
+.playlist span { margin:0; padding:0; display:block; white-space: normal; word-break: break-word; overflow-wrap: anywhere; line-height:1.35; }
+/* Reduce vertical spacing for the merge playlist chooser so rows sit closer */
+.panel .panel-body.grid{ gap:8px; 
+  /* ensure grid rows only take needed height and don't create extra vertical space */
+  grid-auto-rows: min-content;
+  align-items: start;
+  padding-bottom: 0; }
+.panel .panel-body.grid .playlist{ padding:4px 6px; column-gap:6px; }
+/* tighten vertical rhythm specifically for items inside the grid */
+.panel .panel-body.grid > * { margin-bottom: 4px; }
+.panel .panel-body.grid > *:last-child { margin-bottom: 0; }
+
+/* Compact mode for collapsible chooser: very tight rows but keep checkbox inline
+   Use by adding the `compact` class to the `.panel-body.grid` element, e.g.
+   <div class="panel-body grid compact"> ... </div>
+   Target row height ~20px while keeping checkbox vertically centered with the
+   first line of text. */
+.panel .panel-body.grid.compact{ gap:0; padding-top: 16px; }
+/* COMPACT (re-applied): very tight rows for collapsible chooser. */
+/* Use by adding the `compact` class to the `.panel-body.grid` element, e.g.
+   <div class="panel-body grid compact"> ... </div> */
+.panel .panel-body.grid.compact .playlist{
+  display:grid;
+  grid-template-columns:18px 1fr;
+  column-gap:8px;
+  padding:1px 6px;       /* minimal vertical padding */
+  font-size:12px;        /* smaller font to compress height */
+  line-height:1.35;         /* increased line-height for wrapped lines */
+  min-height:0;          /* allow smaller rows */
+  align-items:start;     /* align checkbox to top of text */
+  overflow:visible; /* allow long names to wrap without being clipped */
+}
+.panel .panel-body.grid.compact .playlist > * { align-self: start; }
+.panel .panel-body.grid.compact .playlist span{ margin:0; padding:0; }
+.panel .panel-body.grid.compact .playlist input{ width:14px; height:14px; margin:0; padding:0; justify-self:start; align-self:start }
+
+/* compact variant: small upward nudge to align with first text line; avoid large negative
+  offsets that cause overlap with adjacent buttons. */
+.panel .panel-body.grid.compact .playlist input{ margin-top: -12px; }
+textarea{width:100%; padding:8px; border-radius:6px; border:1px solid var(--border)}
+input[type="text"], select, input{padding:8px; border-radius:6px; border:1px solid var(--border)}
+.flashes{list-style:none; padding:0; margin:8px 0;}
+.flash{padding:8px 12px; border-radius:6px; margin-bottom:6px;}
+.flash.success{background:#d1fae5; color:#064e3b;}
+.flash.error{background:#fee2e2; color:#7f1d1d;}
+.footer{padding:12px 0; color:var(--muted); text-align:center;}
+
+/* Site footer (subtle, non-intrusive) */
+.site-footer{
+  /* Not fixed anymore: the footer lives in document flow. Use margin-top to
+     create breathing room from content above. */
+  position: static;
+  left: auto; transform: none; bottom: auto; z-index: auto; pointer-events: auto;
+  margin-top: 18px;
+  text-align: center;
+}
+.site-footer small{
+  color:var(--muted);
+  font-size:13px;
+  display:inline-block;
+  padding: 6px 0; /* small vertical padding but no boxed background */
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.site-footer a{ color:var(--muted); text-decoration:underline; text-underline-offset:2px }
+.site-footer a:hover{ color:var(--accent); }
+
+/* helper for collapsible playlist chooser */
+.hidden{display:none}
+.small-select{max-height:220px; overflow:auto; margin-top:8px;}
+.toggle-list{background:transparent; border:1px dashed var(--border); padding:6px 8px; border-radius:6px; cursor:pointer}
+.typeahead-list{border:1px solid var(--border); border-radius:6px; margin-top:10px; background:var(--card); max-height:220px; overflow:auto}
+.typeahead-item{padding:10px 12px; cursor:pointer; border-bottom:1px solid rgba(0,0,0,0.03)}
+.typeahead-item:hover{background:#f6f9f6}
+.typeahead #suggestions{ margin-top: 6px !important; transform: none !important; z-index: 1200; }
+.toggle-panel{background:transparent; border:1px dashed var(--border); padding:6px 8px; border-radius:6px; cursor:pointer}
+
+/* variant: inline help toggle used in panel-head for Save queue - looks like text but uses
+  the same placement/interaction as the merge toggle. Keeps color/size inherited. */
+.toggle-panel.inline-help{ border: none; background: transparent; padding:0 6px; text-decoration: underline; text-underline-offset: 2px; color: inherit; font: inherit; display:inline-flex; gap:6px; align-items:center }
+.toggle-panel.inline-help:focus{ outline:2px solid rgba(29,185,84,0.12); border-radius:4px }
+.toggle-panel.inline-help .inline-chev{ transition: transform 180ms cubic-bezier(.2,.8,.2,1); }
+.toggle-panel.inline-help.open .inline-chev{ transform: rotate(180deg); }
+
+/* form spacing: make label/input spacing consistent and comfortable */
+.panel-body label{display:block; margin-bottom:12px; font-weight:400}
+.panel-body p{margin:0 0 12px 0}
+.panel-body input, .panel-body .typeahead-list{margin-bottom:12px}
+
+/* consistent vertical rhythm inside panels */
+.panel-body > * { margin-bottom: 12px; }
+.panel-body > *:last-child { margin-bottom: 0; }
+
+/* Fix collapsed inline-details spacing: when an inline-details is collapsed we
+  must explicitly remove its bottom margin (some generic panel-child rules
+  later in this sheet can override less-specific rules). Also hide its
+  children to avoid phantom gaps during and after the collapse animation. */
+.panel-body .inline-details.collapsed { margin-bottom: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+.panel-body .inline-details.collapsed > * { display: none !important; }
+
+/* inputs inside panel body should have consistent height */
+.panel-body input, .panel-body select, .panel-body textarea { padding:10px; min-height:40px; }
+
+/* ensure items in merge grid wrap nicely */
+/* keep playlist text inline so checkbox and label align horizontally */
+.playlist span{display:inline-block}
+
+/* Toast styles */
+#toast-root{position:fixed; right:20px; top:20px; z-index:2000; display:flex; flex-direction:column; gap:8px;}
+.toast{min-width:180px; max-width:360px; padding:10px 14px; border-radius:8px; box-shadow:0 6px 18px rgba(15,23,42,0.12); transform:translateY(-6px) scale(0.98); opacity:0; transition:all 0.18s cubic-bezier(.2,.8,.2,1);} 
+.toast.visible{transform:translateY(0) scale(1); opacity:1}
+.toast-info{background:#eef2ff; color:#1e293b}
+.toast-success{background:#e6fbef; color:#055e3b}
+.toast-error{background:#fee2e2; color:#7f1d1d}
+
+/* Small unobtrusive percentage indicator shown next to action buttons during long AJAX tasks */
+.ajax-perc{
+  display:inline-block;
+  margin-left:10px;
+  color:#111;
+  font-weight:600;
+  font-size:13px;
+  line-height:1;
+  vertical-align:middle;
+  opacity:0.95;
+}
+
+/* Ensure inputs and placeholders are wide and usable */
+input, textarea, select { width: 100%; box-sizing: border-box; }
+
+/* panel-foot form controls: inputs expand, buttons keep size */
+.panel-foot input:not([type=hidden]){ flex: 1 1 auto; min-width: 140px; min-height:36px; }
+.panel-foot{gap:8px; align-items:center; display:flex; flex-wrap:wrap}
+
+/* Make action buttons use the same font as rest of page */
+.btn{ font-family: inherit; font-weight: 400; }
+.panel-foot .btn{ height:36px; display:inline-flex; align-items:center; justify-content:center; }
+
+/* Compare playlists: compact track list and album art */
+.compare-tracks{ list-style:none; padding:0; margin:0; }
+.compare-track{ display:flex; gap:10px; align-items:center; padding:8px 0; }
+.cover-thumb{ width:48px; height:48px; object-fit:cover; border-radius:6px; flex:0 0 48px; }
+.track-meta{ display:block; overflow:hidden; }
+.track-title{ font-weight:600; font-size:14px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
+.track-artists{ color:var(--muted); font-size:13px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
+/* Scroll-box wrapper for long track lists: show up to 9 items, then scroll */
+.compare-tracks{
+  list-style:none; padding:6px; margin:0; border:1px solid var(--border); background:linear-gradient(#fff, #fafafa); border-radius:8px; box-shadow: 0 6px 18px rgba(12,15,20,0.02);
+  max-height: calc(7 * 66px);
+  overflow-y: auto;
+}
+.compare-track{ display:flex; gap:10px; align-items:center; padding:8px 6px; min-height:56px; border-bottom:1px solid rgba(0,0,0,0.03); }
+.compare-track:last-child{ border-bottom: none; }
+.compare-tracks::-webkit-scrollbar{ width:10px; }
+.compare-tracks::-webkit-scrollbar-thumb{ background:rgba(0,0,0,0.06); border-radius:6px; }
+/* Mobile responsiveness tweaks */
+@media (max-width: 640px){
+  body{font-size:15px}
+  .container{padding:12px}
+  .panel-head{display:flex; justify-content:space-between; align-items:center}
+  .panel-body.grid{display:block}
+  .grid{grid-template-columns:1fr}
+  .panel-foot{flex-direction:column; align-items:stretch}
+  .panel-foot input:not([type=hidden]){width:100%}
+  .toggle-panel{padding:6px 10px}
+}
+
+/* Simple modal used for in-page confirmations (Clean overwrite) */
+.modal{ position:fixed; left:0; top:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; z-index:2200; transition: opacity 180ms ease, visibility 180ms ease; }
+/* Use opacity and pointer-events for hiding so transitions can run. */
+.modal.hidden{ opacity:0; pointer-events:none; }
+.modal-backdrop{ position:absolute; left:0; top:0; right:0; bottom:0; background:rgba(10,12,14,0.0); backdrop-filter: blur(0); opacity:0; transition: backdrop-filter 1000ms ease, opacity 200ms, background-color 200ms ease; will-change: opacity, backdrop-filter; }
+.modal:not(.hidden) .modal-backdrop{ opacity:1; background:rgba(10,12,14,0.45); backdrop-filter: blur(0.6px); }
+.modal-panel{ position:relative; background:var(--card); border-radius:8px; padding:0; box-shadow:0 12px 30px rgba(8,10,12,0.12); max-width:420px; width:min(92%,420px); z-index:2201; border:1px solid var(--border); overflow:hidden; transform: scale(.98); opacity:0; transition: transform 180ms cubic-bezier(.2,.8,.2,1), opacity 160ms ease; }
+.modal:not(.hidden) .modal-panel{ transform: scale(1); opacity:1; }
+.modal-head{ background:#fafafa; padding:10px 14px; border-bottom:1px solid var(--border); font-weight:600; }
+.modal-head h3{ margin:0; font-size:15px; font-weight:600; }
+.modal-body{ padding:14px 16px; }
+.modal-foot{ display:flex; gap:10px; justify-content:flex-end; padding:10px 14px 14px; }
+
+/* AVATAR / USER-META (appended) */
+.header .user-info .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(0,0,0,0.06);
+  background: var(--muted-bg, #f6f6f6);
+  display: inline-block;
+}
+
+.header .user-info .user-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  margin-left: 6px;
+  text-align: right;
+}
+
+.header .user-info .name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text, #222);
+}
+
+.header .user-info .muted {
+  font-size: 12px;
+  color: var(--muted, #777);
+  margin-top: 2px;
+}
+
+@media (max-width: 600px) {
+  .header .user-info .name,
+  .header .user-info .muted {
+    display: none; /* keep header tight on mobile; avatar remains */
+  }
+  .header .user-info .avatar {
+    width: 28px;
+    height: 28px;
+  }
+}
+
